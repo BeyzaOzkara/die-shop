@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Check, X } from 'lucide-react';
-import { getComponentTypes, createComponentType, updateComponentType, deleteComponentType } from '../services/masterDataService';
+import {
+  getComponentTypes,
+  createComponentType,
+  updateComponentType,
+  deleteComponentType,
+} from '../services/masterDataService';
 import type { ComponentType } from '../types/database';
 
 export function ComponentTypesPage() {
   const [componentTypes, setComponentTypes] = useState<ComponentType[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
@@ -35,7 +40,7 @@ export function ComponentTypesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (editingId) {
+      if (editingId !== null) {
         await updateComponentType(editingId, formData);
       } else {
         await createComponentType(formData);
@@ -49,7 +54,7 @@ export function ComponentTypesPage() {
   };
 
   const handleEdit = (componentType: ComponentType) => {
-    setEditingId(componentType.id);
+    setEditingId(componentType.id); // number
     setFormData({
       code: componentType.code,
       name: componentType.name,
@@ -59,7 +64,7 @@ export function ComponentTypesPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Bu bileşen tipini silmek istediğinizden emin misiniz?')) return;
 
     try {
@@ -73,7 +78,9 @@ export function ComponentTypesPage() {
 
   const toggleActive = async (componentType: ComponentType) => {
     try {
-      await updateComponentType(componentType.id, { is_active: !componentType.is_active });
+      await updateComponentType(componentType.id, {
+        is_active: !componentType.is_active,
+      });
       loadComponentTypes();
     } catch (error) {
       console.error('Durum değiştirilemedi:', error);
@@ -103,7 +110,9 @@ export function ComponentTypesPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Bileşen Tipi Tanımı</h1>
-          <p className="text-gray-600 mt-1">Bileşen tiplerini tanımlayın ve yönetin</p>
+          <p className="text-gray-600 mt-1">
+            Bileşen tiplerini tanımlayın ve yönetin
+          </p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
@@ -115,7 +124,10 @@ export function ComponentTypesPage() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
+        >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             {editingId ? 'Bileşen Tipi Düzenle' : 'Yeni Bileşen Tipi'}
           </h3>
@@ -127,7 +139,12 @@ export function ComponentTypesPage() {
               <input
                 type="text"
                 value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    code: e.target.value.toUpperCase(),
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
                 placeholder="HAVUZ"
                 required
@@ -141,7 +158,9 @@ export function ComponentTypesPage() {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Havuz"
                 required
@@ -153,7 +172,9 @@ export function ComponentTypesPage() {
               </label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={2}
               />
@@ -163,7 +184,9 @@ export function ComponentTypesPage() {
                 <input
                   type="checkbox"
                   checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_active: e.target.checked })
+                  }
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm font-medium text-gray-700">Aktif</span>
@@ -190,8 +213,12 @@ export function ComponentTypesPage() {
 
       {componentTypes.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz bileşen tipi yok</h3>
-          <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni tip ekleyin</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Henüz bileşen tipi yok
+          </h3>
+          <p className="text-gray-600">
+            Yukarıdaki butonu kullanarak yeni tip ekleyin
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">

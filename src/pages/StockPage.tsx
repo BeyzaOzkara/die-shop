@@ -75,7 +75,7 @@ export function StockPage() {
     try {
       const grossWeight = Number(newLot.gross_weight_kg);
       await createLot({
-        stock_item_id: newLot.stock_item_id,
+        stock_item_id: Number(newLot.stock_item_id),
         certificate_number: newLot.certificate_number,
         supplier: newLot.supplier,
         length_mm: Number(newLot.length_mm),

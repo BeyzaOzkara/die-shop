@@ -1,92 +1,91 @@
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { updateLotStock } from './stockService';
-import type { ProductionOrder, WorkOrder, WorkOrderOperation, StockMovement } from '../types/database';
+import type {
+  ProductionOrder,
+  WorkOrder,
+  WorkOrderOperation,
+  StockMovement,
+} from '../types/database';
+
+// =======================
+// Production Orders
+// =======================
 
 export async function getProductionOrders(): Promise<ProductionOrder[]> {
-  const { data, error } = await supabase
-    .from('production_orders')
-    .select('*, die:dies(*)')
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  // FastAPI:
+  // GET /production-orders   (backend zaten die ile birlikte dönüyor)
+  return api.get<ProductionOrder[]>('/production-orders');
 }
 
-export async function getProductionOrderById(id: string): Promise<ProductionOrder | null> {
-  const { data, error } = await supabase
-    .from('production_orders')
-    .select('*, die:dies(*)')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+export async function getProductionOrderById(
+  id: string
+): Promise<ProductionOrder | null> {
+  // FastAPI: GET /production-orders/{id} -> 404
+  try {
+    return await api.get<ProductionOrder>(`/production-orders/${Number(id)}`);
+  } catch (err: any) {
+    if (err instanceof Error && err.message.startsWith('API error 404')) {
+      return null;
+    }
+    throw err;
+  }
 }
 
-export async function getWorkOrders(productionOrderId?: string): Promise<WorkOrder[]> {
-  let query = supabase
-    .from('work_orders')
-    .select(`
-      *,
-      die_component:die_components(*, component_type:component_types(*), stock_item:steel_stock_items(*)),
-      lot:lots(*, stock_item:steel_stock_items(*)),
-      production_order:production_orders(*, die:dies(*))
-    `)
-    .order('created_at', { ascending: false });
+// =======================
+// Work Orders
+// =======================
+
+export async function getWorkOrders(
+  productionOrderId?: string
+): Promise<WorkOrder[]> {
+  // FastAPI:
+  // GET /work-orders (backend nested ilişkilerle dönüyor)
+  const all = await api.get<WorkOrder[]>('/work-orders');
 
   if (productionOrderId) {
-    query = query.eq('production_order_id', productionOrderId);
+    const pid = Number(productionOrderId);
+    return all.filter((w) => w.production_order_id === pid);
   }
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  return all;
 }
 
 export async function getWorkOrderById(id: string): Promise<WorkOrder | null> {
-  const { data, error } = await supabase
-    .from('work_orders')
-    .select(`
-      *,
-      die_component:die_components(*, component_type:component_types(*), stock_item:steel_stock_items(*)),
-      lot:lots(*, stock_item:steel_stock_items(*)),
-      production_order:production_orders(*, die:dies(*))
-    `)
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+  // FastAPI: GET /work-orders/{id} -> 404
+  try {
+    return await api.get<WorkOrder>(`/work-orders/${Number(id)}`);
+  } catch (err: any) {
+    if (err instanceof Error && err.message.startsWith('API error 404')) {
+      return null;
+    }
+    throw err;
+  }
 }
 
-export async function getWorkOrderOperations(workOrderId: string): Promise<WorkOrderOperation[]> {
-  const { data, error } = await supabase
-    .from('work_order_operations')
-    .select('*, work_center:work_centers(*)')
-    .eq('work_order_id', workOrderId)
-    .order('sequence_number');
+// =======================
+// Work Order Operations
+// =======================
 
-  if (error) throw error;
-  return data || [];
+export async function getWorkOrderOperations(
+  workOrderId: string
+): Promise<WorkOrderOperation[]> {
+  // FastAPI:
+  // GET /work-order-operations/by-work-order/{work_order_id}
+  return api.get<WorkOrderOperation[]>(
+    `/work-order-operations/by-work-order/${Number(workOrderId)}`
+  );
 }
 
-export async function getOperationsByWorkCenter(workCenterId: string): Promise<WorkOrderOperation[]> {
-  const { data, error } = await supabase
-    .from('work_order_operations')
-    .select(`
-      *,
-      work_center:work_centers(*),
-      work_order:work_orders(
-        *,
-        die_component:die_components(*, component_type:component_types(*)),
-        production_order:production_orders(*, die:dies(*))
-      )
-    `)
-    .eq('work_center_id', workCenterId)
-    .order('created_at');
-
-  if (error) throw error;
-  return data || [];
+export async function getOperationsByWorkCenter(
+  workCenterId: string
+): Promise<WorkOrderOperation[]> {
+  // FastAPI:
+  // GET /work-order-operations/by-work-center/{work_center_id}
+  // Backend, WorkOrderOperationWithWorkOrderRead dönüyor (nested work_order + work_center);
+  // TS tarafında WorkOrderOperation tipi already bunları optional field olarak içerebilir.
+  return api.get<WorkOrderOperation[]>(
+    `/work-order-operations/by-work-center/${Number(workCenterId)}`
+  );
 }
 
 export async function updateOperationStatus(
@@ -102,16 +101,12 @@ export async function updateOperationStatus(
   } else if (status === 'Completed') {
     updates.completed_at = new Date().toISOString();
   }
-
-  const { data, error } = await supabase
-    .from('work_order_operations')
-    .update(updates)
-    .eq('id', id)
-    .select('*, work_center:work_centers(*)')
-    .single();
-
-  if (error) throw error;
-  return data;
+  // FastAPI:
+  // PATCH /work-order-operations/{id}
+  return api.patch<WorkOrderOperation>(
+    `/work-order-operations/${Number(id)}`,
+    updates
+  );
 }
 
 export async function updateWorkOrderStatus(
@@ -125,17 +120,14 @@ export async function updateWorkOrderStatus(
   } else if (status === 'Completed') {
     updates.completed_at = new Date().toISOString();
   }
-
-  const { data, error } = await supabase
-    .from('work_orders')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  // FastAPI:
+  // PATCH /work-orders/{id}
+  return api.patch<WorkOrder>(`/work-orders/${Number(id)}`, updates);
 }
+
+// =======================
+// Complete Work Order + Stock Movement
+// =======================
 
 export async function completeWorkOrder(
   workOrderId: string,
@@ -143,34 +135,30 @@ export async function completeWorkOrder(
   lotId: string,
   notes?: string
 ): Promise<void> {
+  // 1) Lot stok güncelle
   await updateLotStock(lotId, actualConsumptionKg);
 
-  const { data: workOrder, error: woError } = await supabase
-    .from('work_orders')
-    .update({
-      actual_consumption_kg: actualConsumptionKg,
-      lot_id: lotId,
-      status: 'Completed',
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', workOrderId)
-    .select()
-    .single();
+  // 2) İş emrini güncelle (gerçek tüketim, lot, status Completed)
+  await api.patch<WorkOrder>(`/work-orders/${Number(workOrderId)}`, {
+    actual_consumption_kg: actualConsumptionKg,
+    lot_id: Number(lotId),
+    status: 'Completed',
+    completed_at: new Date().toISOString(),
+  });
 
-  if (woError) throw woError;
-
-  const { error: smError } = await supabase
-    .from('stock_movements')
-    .insert({
-      lot_id: lotId,
-      work_order_id: workOrderId,
-      quantity_kg: actualConsumptionKg,
-      movement_date: new Date().toISOString(),
-      notes,
-    });
-
-  if (smError) throw smError;
+  // 3) Stok hareketini kaydet
+  await api.post<StockMovement>('/inventory/stock-movements', {
+    lot_id: Number(lotId),
+    work_order_id: Number(workOrderId),
+    quantity_kg: actualConsumptionKg,
+    movement_date: new Date().toISOString(),
+    notes,
+  });
 }
+
+// =======================
+// Production Order Status
+// =======================
 
 export async function updateProductionOrderStatus(
   id: string,
@@ -184,27 +172,20 @@ export async function updateProductionOrderStatus(
     updates.completed_at = new Date().toISOString();
   }
 
-  const { data, error } = await supabase
-    .from('production_orders')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  // FastAPI:
+  // PATCH /production-orders/{id}
+  return api.patch<ProductionOrder>(
+    `/production-orders/${Number(id)}`,
+    updates
+  );
 }
 
-export async function getStockMovements(): Promise<StockMovement[]> {
-  const { data, error } = await supabase
-    .from('stock_movements')
-    .select(`
-      *,
-      lot:lots(*, stock_item:steel_stock_items(*)),
-      work_order:work_orders(*, die_component:die_components(*, component_type:component_types(*)))
-    `)
-    .order('movement_date', { ascending: false });
+// =======================
+// Stock Movements
+// =======================
 
-  if (error) throw error;
-  return data || [];
+export async function getStockMovements(): Promise<StockMovement[]> {
+  // FastAPI:
+  // GET /inventory/stock-movements
+  return api.get<StockMovement[]>('/inventory/stock-movements');
 }

@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Check, X } from 'lucide-react';
-import { getDieTypes, createDieType, updateDieType, deleteDieType } from '../services/masterDataService';
+import {
+  getDieTypes,
+  createDieType,
+  updateDieType,
+  deleteDieType,
+} from '../services/masterDataService';
 import type { DieType } from '../types/database';
 
 export function DieTypesPage() {
   const [dieTypes, setDieTypes] = useState<DieType[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null); // 🔹 string -> number
   const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
@@ -35,7 +40,8 @@ export function DieTypesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (editingId) {
+      if (editingId !== null) {
+        // 🔹 id number, service string bekliyor
         await updateDieType(editingId, formData);
       } else {
         await createDieType(formData);
@@ -49,7 +55,7 @@ export function DieTypesPage() {
   };
 
   const handleEdit = (dieType: DieType) => {
-    setEditingId(dieType.id);
+    setEditingId(dieType.id); // 🔹 dieType.id: number
     setFormData({
       code: dieType.code,
       name: dieType.name,
@@ -59,11 +65,11 @@ export function DieTypesPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => { // 🔹 string -> number
     if (!confirm('Bu kalıp tipini silmek istediğinizden emin misiniz?')) return;
 
     try {
-      await deleteDieType(id);
+      await deleteDieType(id); // 🔹 service string bekliyor
       loadDieTypes();
     } catch (error: any) {
       console.error('Silme başarısız:', error);
@@ -73,7 +79,9 @@ export function DieTypesPage() {
 
   const toggleActive = async (dieType: DieType) => {
     try {
-      await updateDieType(dieType.id, { is_active: !dieType.is_active });
+      await updateDieType(dieType.id, { // 🔹 id’yi stringe çevir
+        is_active: !dieType.is_active,
+      });
       loadDieTypes();
     } catch (error) {
       console.error('Durum değiştirilemedi:', error);
@@ -115,9 +123,12 @@ export function DieTypesPage() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
+        >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            {editingId ? 'Kalıp Tipi Düzenle' : 'Yeni Kalıp Tipi'}
+            {editingId !== null ? 'Kalıp Tipi Düzenle' : 'Yeni Kalıp Tipi'}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
@@ -127,11 +138,16 @@ export function DieTypesPage() {
               <input
                 type="text"
                 value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    code: e.target.value.toUpperCase(),
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
                 placeholder="SOLID"
                 required
-                disabled={!!editingId}
+                disabled={editingId !== null}
               />
             </div>
             <div>
@@ -141,7 +157,9 @@ export function DieTypesPage() {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Solid Kalıp"
                 required
@@ -153,7 +171,9 @@ export function DieTypesPage() {
               </label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={2}
               />
@@ -163,10 +183,14 @@ export function DieTypesPage() {
                 <input
                   type="checkbox"
                   checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_active: e.target.checked })
+                  }
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm font-medium text-gray-700">Aktif</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Aktif
+                </span>
               </label>
             </div>
           </div>
@@ -182,7 +206,7 @@ export function DieTypesPage() {
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              {editingId ? 'Güncelle' : 'Oluştur'}
+              {editingId !== null ? 'Güncelle' : 'Oluştur'}
             </button>
           </div>
         </form>
@@ -190,8 +214,12 @@ export function DieTypesPage() {
 
       {dieTypes.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz kalıp tipi yok</h3>
-          <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni tip ekleyin</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Henüz kalıp tipi yok
+          </h3>
+          <p className="text-gray-600">
+            Yukarıdaki butonu kullanarak yeni tip ekleyin
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">

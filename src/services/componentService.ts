@@ -1,45 +1,51 @@
-import { supabase } from '../lib/supabase';
-import type { ComponentType, ComponentBOM } from '../types/database';
+import { api } from '../lib/api';
+import type { ComponentBOM } from '../types/database';
 
-export async function getComponentBOM(componentTypeId: string): Promise<ComponentBOM[]> {
-  const { data, error } = await supabase
-    .from('component_bom')
-    .select('*, work_center:work_centers(*)')
-    .eq('component_type_id', componentTypeId)
-    .order('sequence_number');
+// Payload tipi: id, created_at ve nested work_center'ı backend'e GÖNDERMİYORUZ
+type ComponentBOMPayload = Omit<ComponentBOM, 'id' | 'created_at' | 'work_center'>;
 
-  if (error) throw error;
-  return data || [];
+export async function getComponentBOM(componentTypeId: number): Promise<ComponentBOM[]> {
+  // Supabase:
+  // .from('component_bom')
+  // .select('*, work_center:work_centers(*)')
+  // .eq('component_type_id', componentTypeId)
+  // .order('sequence_number');
+  //
+  // FastAPI endpoint varsayımı:
+  // GET /component-bom?component_type_id=...
+  return api.get<ComponentBOM[]>('/component-bom', {
+    component_type_id: componentTypeId,
+  });
 }
 
-export async function createBOMOperation(operation: Omit<ComponentBOM, 'id' | 'created_at'>): Promise<ComponentBOM> {
-  const { data, error } = await supabase
-    .from('component_bom')
-    .insert(operation)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function createBOMOperation(
+  operation: ComponentBOMPayload
+): Promise<ComponentBOM> {
+  // Supabase:
+  // insert(operation).select().single();
+  //
+  // FastAPI:
+  // POST /component-bom
+  return api.post<ComponentBOM>('/component-bom', operation);
 }
 
-export async function updateBOMOperation(id: string, updates: Partial<ComponentBOM>): Promise<ComponentBOM> {
-  const { data, error } = await supabase
-    .from('component_bom')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function updateBOMOperation(
+  id: number,
+  updates: Partial<ComponentBOMPayload>
+): Promise<ComponentBOM> {
+  // Supabase:
+  // update(updates).eq('id', id).select().single();
+  //
+  // FastAPI:
+  // PATCH /component-bom/{id}
+  return api.patch<ComponentBOM>(`/component-bom/${id}`, updates);
 }
 
-export async function deleteBOMOperation(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('component_bom')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+export async function deleteBOMOperation(id: number): Promise<void> {
+  // Supabase:
+  // delete().eq('id', id)
+  //
+  // FastAPI:
+  // DELETE /component-bom/{id}
+  await api.del<void>(`/component-bom/${id}`);
 }

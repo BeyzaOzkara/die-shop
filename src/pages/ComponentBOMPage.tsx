@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { List, Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import { getActiveComponentTypes } from '../services/masterDataService';
-import { getComponentBOM, createBOMOperation, updateBOMOperation, deleteBOMOperation } from '../services/componentService';
+import {
+  getComponentBOM,
+  createBOMOperation,
+  updateBOMOperation,
+  deleteBOMOperation,
+} from '../services/componentService';
 import { getWorkCenters } from '../services/workCenterService';
 import type { ComponentType, ComponentBOM, WorkCenter } from '../types/database';
 
@@ -11,7 +16,7 @@ export function ComponentBOMPage() {
   const [selectedComponent, setSelectedComponent] = useState<ComponentType | null>(null);
   const [operations, setOperations] = useState<ComponentBOM[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
@@ -55,6 +60,7 @@ export function ComponentBOMPage() {
     if (!selectedComponent) return;
 
     try {
+      // selectedComponent.id artık number, service de number bekliyor
       const data = await getComponentBOM(selectedComponent.id);
       setOperations(data);
     } catch (error) {
@@ -68,15 +74,17 @@ export function ComponentBOMPage() {
 
     try {
       const payload = {
-        component_type_id: selectedComponent.id,
+        component_type_id: selectedComponent.id, // number
         sequence_number: Number(formData.sequence_number),
         operation_name: formData.operation_name,
-        work_center_id: formData.work_center_id,
-        estimated_duration_minutes: formData.estimated_duration_minutes ? Number(formData.estimated_duration_minutes) : undefined,
+        work_center_id: Number(formData.work_center_id), // string → number
+        estimated_duration_minutes: formData.estimated_duration_minutes
+          ? Number(formData.estimated_duration_minutes)
+          : undefined,
         notes: formData.notes || undefined,
       };
 
-      if (editingId) {
+      if (editingId !== null) {
         await updateBOMOperation(editingId, payload);
       } else {
         await createBOMOperation(payload);
@@ -90,18 +98,19 @@ export function ComponentBOMPage() {
   };
 
   const handleEdit = (operation: ComponentBOM) => {
-    setEditingId(operation.id);
+    setEditingId(operation.id); // id number
     setFormData({
       sequence_number: operation.sequence_number.toString(),
       operation_name: operation.operation_name,
-      work_center_id: operation.work_center_id,
-      estimated_duration_minutes: operation.estimated_duration_minutes?.toString() || '',
+      work_center_id: String(operation.work_center_id), // number → string
+      estimated_duration_minutes:
+        operation.estimated_duration_minutes?.toString() || '',
       notes: operation.notes || '',
     });
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Bu operasyonu silmek istediğinizden emin misiniz?')) return;
 
     try {
@@ -146,7 +155,9 @@ export function ComponentBOMPage() {
       {componentTypes.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <List className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz bileşen tipi yok</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Henüz bileşen tipi yok
+          </h3>
           <p className="text-gray-600">Önce bileşen tipleri tanımlayın</p>
         </div>
       ) : (
@@ -195,7 +206,10 @@ export function ComponentBOMPage() {
                   </div>
 
                   {showForm && (
-                    <form onSubmit={handleSubmit} className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <form
+                      onSubmit={handleSubmit}
+                      className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200"
+                    >
                       <h4 className="font-medium text-gray-900 mb-3">
                         {editingId ? 'Operasyon Düzenle' : 'Yeni Operasyon'}
                       </h4>
@@ -207,7 +221,12 @@ export function ComponentBOMPage() {
                           <input
                             type="number"
                             value={formData.sequence_number}
-                            onChange={(e) => setFormData({ ...formData, sequence_number: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                sequence_number: e.target.value,
+                              })
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required
                             min="1"
@@ -220,7 +239,12 @@ export function ComponentBOMPage() {
                           <input
                             type="text"
                             value={formData.operation_name}
-                            onChange={(e) => setFormData({ ...formData, operation_name: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                operation_name: e.target.value,
+                              })
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required
                           />
@@ -231,13 +255,18 @@ export function ComponentBOMPage() {
                           </label>
                           <select
                             value={formData.work_center_id}
-                            onChange={(e) => setFormData({ ...formData, work_center_id: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                work_center_id: e.target.value,
+                              })
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required
                           >
                             <option value="">Seçiniz</option>
                             {workCenters.map((wc) => (
-                              <option key={wc.id} value={wc.id}>
+                              <option key={wc.id} value={String(wc.id)}>
                                 {wc.name}
                               </option>
                             ))}
@@ -250,7 +279,12 @@ export function ComponentBOMPage() {
                           <input
                             type="number"
                             value={formData.estimated_duration_minutes}
-                            onChange={(e) => setFormData({ ...formData, estimated_duration_minutes: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                estimated_duration_minutes: e.target.value,
+                              })
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             min="0"
                           />
@@ -261,7 +295,12 @@ export function ComponentBOMPage() {
                           </label>
                           <textarea
                             value={formData.notes}
-                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                notes: e.target.value,
+                              })
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             rows={2}
                           />
@@ -304,8 +343,12 @@ export function ComponentBOMPage() {
                                 {op.sequence_number}
                               </span>
                               <div>
-                                <div className="font-medium text-gray-900">{op.operation_name}</div>
-                                <div className="text-sm text-gray-600">{op.work_center?.name}</div>
+                                <div className="font-medium text-gray-900">
+                                  {op.operation_name}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {op.work_center?.name}
+                                </div>
                               </div>
                             </div>
                             {op.estimated_duration_minutes && (

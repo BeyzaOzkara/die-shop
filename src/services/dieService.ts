@@ -1,144 +1,134 @@
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { calculateTheoreticalConsumption, generateOrderNumber } from '../lib/calculations';
 import type { Die, DieComponent, ProductionOrder, WorkOrder } from '../types/database';
 import { getComponentBOM } from './componentService';
 
+// =======================
+// Dies
+// =======================
+
 export async function getDies(): Promise<Die[]> {
-  const { data, error } = await supabase
-    .from('dies')
-    .select('*, die_type_ref:die_types(id, code, name)')
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  // GET /dies (backend die_type_ref ile dönüyor)
+  return api.get<Die[]>('/dies');
 }
 
-export async function getDieById(id: string): Promise<Die | null> {
-  const { data, error } = await supabase
-    .from('dies')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+export async function getDieById(id: number): Promise<Die | null> {
+  // FastAPI: GET /dies/{id} -> 404 ise null’a çeviriyoruz
+  try {
+    return await api.get<Die>(`/dies/${id}`);
+  } catch (err: any) {
+    if (err instanceof Error && err.message.startsWith('API error 404')) {
+      return null;
+    }
+    throw err;
+  }
 }
 
-export async function getDieComponents(dieId: string): Promise<DieComponent[]> {
-  const { data, error } = await supabase
-    .from('die_components')
-    .select('*, component_type:component_types(*), stock_item:steel_stock_items(*)')
-    .eq('die_id', dieId)
-    .order('created_at');
-
-  if (error) throw error;
-  return data || [];
+export async function getDieComponents(dieId: number): Promise<DieComponent[]> {
+  // GET /dies/{dieId}/components
+  return api.get<DieComponent[]>(`/dies/${dieId}/components`);
 }
 
-export async function createDie(die: Omit<Die, 'id' | 'created_at' | 'updated_at'>): Promise<Die> {
-  const { data, error } = await supabase
-    .from('dies')
-    .insert({ ...die, status: 'Draft' })
-    .select()
-    .single();
+export async function createDie(
+  die: Omit<Die, 'id' | 'created_at' | 'updated_at'>
+): Promise<Die> {
+  // POST /dies (status'i backend Draft olarak set ediyor)
+  const payload = {
+    die_number: die.die_number,
+    die_diameter_mm: die.die_diameter_mm,
+    total_package_length_mm: die.total_package_length_mm,
+    die_type_id: die.die_type_id,     // number
+    design_file_url: die.design_file_url,
+  };
 
-  if (error) throw error;
-  return data;
+  return api.post<Die>('/dies', payload);
 }
 
 export async function addComponentToDie(
-  dieId: string,
-  componentTypeId: string,
-  stockItemId: string,
+  dieId: number,
+  componentTypeId: number,
+  stockItemId: number,
   packageLengthMm: number,
   diameterMm: number
 ): Promise<DieComponent> {
-  const theoreticalConsumption = calculateTheoreticalConsumption(packageLengthMm, diameterMm);
+  const theoreticalConsumption = calculateTheoreticalConsumption(
+    packageLengthMm,
+    diameterMm
+  );
 
-  const { data, error } = await supabase
-    .from('die_components')
-    .insert({
-      die_id: dieId,
-      component_type_id: componentTypeId,
-      stock_item_id: stockItemId,
-      package_length_mm: packageLengthMm,
-      theoretical_consumption_kg: theoreticalConsumption,
-    })
-    .select('*, component_type:component_types(*), stock_item:steel_stock_items(*)')
-    .single();
+  // POST /dies/{dieId}/components
+  const payload = {
+    component_type_id: componentTypeId,
+    stock_item_id: stockItemId,
+    package_length_mm: packageLengthMm,
+    theoretical_consumption_kg: theoreticalConsumption,
+  };
 
-  if (error) throw error;
-  return data;
+  return api.post<DieComponent>(`/dies/${dieId}/components`, payload);
 }
 
-export async function updateDieStatus(dieId: string, status: Die['status']): Promise<Die> {
-  const { data, error } = await supabase
-    .from('dies')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', dieId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function updateDieStatus(
+  dieId: number,
+  status: Die['status']
+): Promise<Die> {
+  // PATCH /dies/{dieId}
+  return api.patch<Die>(`/dies/${dieId}`, { status });
 }
 
-export async function createProductionOrder(dieId: string): Promise<ProductionOrder> {
+// =======================
+// Production Order & Work Orders
+// =======================
+
+export async function createProductionOrder(dieId: number): Promise<ProductionOrder> {
+  // 1) Kalıp kontrolü
   const die = await getDieById(dieId);
   if (!die) throw new Error('Kalıp bulunamadı');
 
+  // 2) Üretim emri oluştur
   const orderNumber = generateOrderNumber('UE');
 
-  const { data: productionOrder, error: poError } = await supabase
-    .from('production_orders')
-    .insert({
-      die_id: dieId,
-      order_number: orderNumber,
-      status: 'Waiting',
-    })
-    .select()
-    .single();
+  // POST /production-orders
+  const productionOrder = await api.post<ProductionOrder>('/production-orders', {
+    die_id: dieId,
+    order_number: orderNumber,
+    status: 'Waiting',
+  });
 
-  if (poError) throw poError;
-
+  // 3) Kalıp bileşenlerini çek
   const components = await getDieComponents(dieId);
 
+  // 4) Her bileşen için İş Emri + Operasyonları oluştur
   for (const component of components) {
     const workOrderNumber = generateOrderNumber('IE');
 
-    const { data: workOrder, error: woError } = await supabase
-      .from('work_orders')
-      .insert({
-        production_order_id: productionOrder.id,
-        die_component_id: component.id,
-        order_number: workOrderNumber,
-        theoretical_consumption_kg: component.theoretical_consumption_kg,
-        status: 'Waiting',
-      })
-      .select()
-      .single();
+    // POST /work-orders
+    const workOrder = await api.post<WorkOrder>('/work-orders', {
+      production_order_id: productionOrder.id,
+      die_component_id: component.id,
+      order_number: workOrderNumber,
+      theoretical_consumption_kg: component.theoretical_consumption_kg,
+      status: 'Waiting',
+    });
 
-    if (woError) throw woError;
-
+    // Bileşen tipine göre BOM operasyonlarını çek
     const bomOperations = await getComponentBOM(component.component_type_id);
 
+    // Her BOM operasyonu için İş Emri Operasyon kaydı oluştur
     for (const bomOp of bomOperations) {
-      const { error: opError } = await supabase
-        .from('work_order_operations')
-        .insert({
-          work_order_id: workOrder.id,
-          sequence_number: bomOp.sequence_number,
-          operation_name: bomOp.operation_name,
-          work_center_id: bomOp.work_center_id,
-          estimated_duration_minutes: bomOp.estimated_duration_minutes,
-          notes: bomOp.notes,
-          status: 'Waiting',
-        });
-
-      if (opError) throw opError;
+      // POST /work-order-operations
+      await api.post('/work-order-operations', {
+        work_order_id: workOrder.id,
+        sequence_number: bomOp.sequence_number,
+        operation_name: bomOp.operation_name,
+        work_center_id: bomOp.work_center_id,
+        estimated_duration_minutes: bomOp.estimated_duration_minutes,
+        notes: bomOp.notes,
+        status: 'Waiting',
+      });
     }
   }
 
+  // 5) Kalıp durumunu Ready yap
   await updateDieStatus(dieId, 'Ready');
 
   return productionOrder;

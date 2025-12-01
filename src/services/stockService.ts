@@ -1,87 +1,53 @@
-import { supabase } from '../lib/supabase';
-import type { SteelStockItem, Lot } from '../types/database';
+// src/services/stockService.ts
+import { api } from '../lib/api';
+import type { SteelStockItem, Lot, StockMovement } from '../types/database';
 
+// Çelik ürünler
 export async function getSteelStockItems(): Promise<SteelStockItem[]> {
-  const { data, error } = await supabase
-    .from('steel_stock_items')
-    .select('*')
-    .order('alloy, diameter_mm');
-
-  if (error) throw error;
-  return data || [];
+  return api.get<SteelStockItem[]>('/inventory/steel-stock-items');
 }
 
-export async function createSteelStockItem(item: Omit<SteelStockItem, 'id' | 'created_at'>): Promise<SteelStockItem> {
-  const { data, error } = await supabase
-    .from('steel_stock_items')
-    .insert(item)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function createSteelStockItem(payload: {
+  alloy: string;
+  diameter_mm: number;
+  description?: string;
+}): Promise<SteelStockItem> {
+  return api.post<SteelStockItem>('/inventory/steel-stock-items', payload);
 }
 
-export async function getLots(stockItemId?: string): Promise<Lot[]> {
-  let query = supabase
-    .from('lots')
-    .select('*, stock_item:steel_stock_items(*)')
-    .order('received_date', { ascending: false });
-
-  if (stockItemId) {
-    query = query.eq('stock_item_id', stockItemId);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+// Lotlar
+export async function getLots(): Promise<Lot[]> {
+  return api.get<Lot[]>('/inventory/lots');
 }
 
-export async function getAvailableLots(stockItemId: string): Promise<Lot[]> {
-  const { data, error } = await supabase
-    .from('lots')
-    .select('*, stock_item:steel_stock_items(*)')
-    .eq('stock_item_id', stockItemId)
-    .gt('remaining_kg', 0)
-    .order('received_date');
-
-  if (error) throw error;
-  return data || [];
+export async function createLot(payload: {
+  stock_item_id: number;
+  certificate_number: string;
+  supplier: string;
+  length_mm: number;
+  gross_weight_kg: number;
+  remaining_kg: number;
+  certificate_file_url?: string;
+  received_date: string; // "YYYY-MM-DD" formatında
+}): Promise<Lot> {
+  return api.post<Lot>('/inventory/lots', payload);
 }
 
-export async function createLot(lot: Omit<Lot, 'id' | 'created_at'>): Promise<Lot> {
-  const { data, error } = await supabase
-    .from('lots')
-    .insert(lot)
-    .select('*, stock_item:steel_stock_items(*)')
-    .single();
-
-  if (error) throw error;
-  return data;
+// Belirli stok item için kalan lotlar (WorkOrdersPage’de kullanılıyor)
+export async function getAvailableLots(stockItemId: string | number): Promise<Lot[]> {
+  return api.get<Lot[]>(`/inventory/lots/by-stock-item/${stockItemId}?only_with_remaining=true`);
 }
 
-export async function updateLotStock(lotId: string, consumedKg: number): Promise<Lot> {
-  const { data: lot, error: fetchError } = await supabase
-    .from('lots')
-    .select('remaining_kg')
-    .eq('id', lotId)
-    .single();
+// Stok hareketleri (StockPage -> movements tabı)
+export async function getStockMovements(): Promise<StockMovement[]> {
+  return api.get<StockMovement[]>('/inventory/stock-movements');
+}
 
-  if (fetchError) throw fetchError;
-
-  const newRemaining = lot.remaining_kg - consumedKg;
-
-  if (newRemaining < 0) {
-    throw new Error('Yetersiz stok miktarı');
-  }
-
-  const { data, error } = await supabase
-    .from('lots')
-    .update({ remaining_kg: newRemaining })
-    .eq('id', lotId)
-    .select('*, stock_item:steel_stock_items(*)')
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function updateLotStock(
+  lotId: number | string,
+  remainingKg: number
+): Promise<Lot> {
+  return api.patch<Lot>(`/inventory/lots/${lotId}/remaining`, {
+    remaining_kg: remainingKg,
+  });
 }

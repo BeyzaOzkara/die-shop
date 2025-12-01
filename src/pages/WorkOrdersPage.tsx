@@ -20,9 +20,9 @@ export function WorkOrdersPage() {
 
   useEffect(() => {
     if (selectedWorkOrder) {
-      loadOperations(selectedWorkOrder.id);
+      loadOperations(String(selectedWorkOrder.id));
       if (selectedWorkOrder.die_component?.stock_item_id) {
-        loadAvailableLots(selectedWorkOrder.die_component.stock_item_id);
+        loadAvailableLots(String(selectedWorkOrder.die_component.stock_item_id));
       }
     }
   }, [selectedWorkOrder]);
@@ -65,7 +65,7 @@ export function WorkOrdersPage() {
     try {
       await updateOperationStatus(operationId, newStatus, operatorName);
       if (selectedWorkOrder) {
-        loadOperations(selectedWorkOrder.id);
+        loadOperations(String(selectedWorkOrder.id));
       }
     } catch (error) {
       console.error('Operasyon durumu güncellenemedi:', error);
@@ -81,7 +81,7 @@ export function WorkOrdersPage() {
 
     try {
       await completeWorkOrder(
-        selectedWorkOrder.id,
+        String(selectedWorkOrder.id),
         Number(actualConsumption),
         selectedLot
       );
@@ -250,7 +250,7 @@ export function WorkOrdersPage() {
                             <button
                               onClick={() => {
                                 const operator = prompt('Operatör adını girin (opsiyonel):');
-                                handleOperationStatusChange(op.id, 'In Progress', operator || undefined);
+                                handleOperationStatusChange(String(op.id), 'In Progress', operator || undefined);
                               }}
                               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                             >
@@ -261,7 +261,7 @@ export function WorkOrdersPage() {
 
                           {op.status === 'In Progress' && (
                             <button
-                              onClick={() => handleOperationStatusChange(op.id, 'Completed')}
+                              onClick={() => handleOperationStatusChange(String(op.id), 'Completed')}
                               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                             >
                               <Check className="w-4 h-4" />

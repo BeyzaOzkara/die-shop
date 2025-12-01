@@ -1,154 +1,119 @@
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import type { DieType, ComponentType, DieTypeComponent } from '../types/database';
 
-export async function getDieTypes(): Promise<DieType[]> {
-  const { data, error } = await supabase
-    .from('die_types')
-    .select('*')
-    .order('name');
+// =======================
+// Die Types
+// =======================
 
-  if (error) throw error;
-  return data || [];
+export async function getDieTypes(): Promise<DieType[]> {
+  return api.get<DieType[]>('/die-config/die-types');
 }
 
 export async function getActiveDieTypes(): Promise<DieType[]> {
-  const { data, error } = await supabase
-    .from('die_types')
-    .select('*')
-    .eq('is_active', true)
-    .order('name');
-
-  if (error) throw error;
-  return data || [];
+  return api.get<DieType[]>('/die-config/die-types/active');
 }
 
-export async function createDieType(dieType: Omit<DieType, 'id' | 'created_at' | 'updated_at'>): Promise<DieType> {
-  const { data, error } = await supabase
-    .from('die_types')
-    .insert(dieType)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function createDieType(
+  dieType: Omit<DieType, 'id' | 'created_at' | 'updated_at'>
+): Promise<DieType> {
+  const payload = {
+    code: dieType.code,
+    name: dieType.name,
+    description: dieType.description,
+    is_active: dieType.is_active,
+  };
+  return api.post<DieType>('/die-config/die-types', payload);
 }
 
-export async function updateDieType(id: string, updates: Partial<DieType>): Promise<DieType> {
-  const { data, error } = await supabase
-    .from('die_types')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function updateDieType(
+  id: number,
+  updates: Partial<DieType>
+): Promise<DieType> {
+  const { id: _omit, created_at, updated_at, ...rest } = updates as any;
+  return api.patch<DieType>(`/die-config/die-types/${id}`, rest);
 }
 
-export async function deleteDieType(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('die_types')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+export async function deleteDieType(id: number): Promise<void> {
+  await api.del<void>(`/die-config/die-types/${id}`);
 }
+
+// =======================
+// Component Types
+// =======================
 
 export async function getComponentTypes(): Promise<ComponentType[]> {
-  const { data, error } = await supabase
-    .from('component_types')
-    .select('*')
-    .order('name');
-
-  if (error) throw error;
-  return data || [];
+  return api.get<ComponentType[]>('/die-config/component-types');
 }
 
 export async function getActiveComponentTypes(): Promise<ComponentType[]> {
-  const { data, error } = await supabase
-    .from('component_types')
-    .select('*')
-    .eq('is_active', true)
-    .order('name');
-
-  if (error) throw error;
-  return data || [];
+  return api.get<ComponentType[]>('/die-config/component-types/active');
 }
 
-export async function createComponentType(componentType: Omit<ComponentType, 'id' | 'created_at' | 'updated_at'>): Promise<ComponentType> {
-  const { data, error } = await supabase
-    .from('component_types')
-    .insert(componentType)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function createComponentType(
+  componentType: Omit<ComponentType, 'id' | 'created_at' | 'updated_at'>
+): Promise<ComponentType> {
+  const payload = {
+    code: componentType.code,
+    name: componentType.name,
+    description: componentType.description,
+    is_active: componentType.is_active,
+  };
+  return api.post<ComponentType>('/die-config/component-types', payload);
 }
 
-export async function updateComponentType(id: string, updates: Partial<ComponentType>): Promise<ComponentType> {
-  const { data, error } = await supabase
-    .from('component_types')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function updateComponentType(
+  id: number,
+  updates: Partial<ComponentType>
+): Promise<ComponentType> {
+  const { id: _omit, created_at, updated_at, ...rest } = updates as any;
+  return api.patch<ComponentType>(`/die-config/component-types/${id}`, rest);
 }
 
-export async function deleteComponentType(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('component_types')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+export async function deleteComponentType(id: number): Promise<void> {
+  await api.del<void>(`/die-config/component-types/${id}`);
 }
 
-export async function getDieTypeComponents(dieTypeId?: string): Promise<DieTypeComponent[]> {
-  let query = supabase
-    .from('die_type_components')
-    .select('*, die_type:die_types(*), component_type:component_types(*)')
-    .order('created_at');
+// =======================
+// DieType ↔ ComponentType Mapping
+// =======================
+
+export async function getDieTypeComponents(
+  dieTypeId?: string
+): Promise<DieTypeComponent[]> {
+  const all = await api.get<DieTypeComponent[]>('/die-config/die-type-components');
 
   if (dieTypeId) {
-    query = query.eq('die_type_id', dieTypeId);
+    const idNum = Number(dieTypeId);
+    return all.filter((m) => m.die_type_id === idNum);
   }
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  return all;
 }
 
-export async function getComponentTypesForDieType(dieTypeId: string): Promise<ComponentType[]> {
-  const { data, error } = await supabase
-    .from('die_type_components')
-    .select('component_type:component_types(*)')
-    .eq('die_type_id', dieTypeId);
-
-  if (error) throw error;
-  return (data || []).map(item => item.component_type).filter(Boolean) as ComponentType[];
+export async function getComponentTypesForDieType(
+  dieTypeId: string
+): Promise<ComponentType[]> {
+  return api.get<ComponentType[]>(
+    `/die-config/die-types/${Number(dieTypeId)}/components`
+  );
 }
 
-export async function addDieTypeComponent(dieTypeId: string, componentTypeId: string): Promise<DieTypeComponent> {
-  const { data, error } = await supabase
-    .from('die_type_components')
-    .insert({ die_type_id: dieTypeId, component_type_id: componentTypeId })
-    .select('*, die_type:die_types(*), component_type:component_types(*)')
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function addDieTypeComponent(
+  dieTypeId: string,
+  componentTypeId: string
+): Promise<DieTypeComponent> {
+  return api.post<DieTypeComponent>('/die-config/die-type-components', {
+    die_type_id: Number(dieTypeId),
+    component_type_id: Number(componentTypeId),
+  });
 }
 
-export async function removeDieTypeComponent(dieTypeId: string, componentTypeId: string): Promise<void> {
-  const { error } = await supabase
-    .from('die_type_components')
-    .delete()
-    .eq('die_type_id', dieTypeId)
-    .eq('component_type_id', componentTypeId);
-
-  if (error) throw error;
+export async function removeDieTypeComponent(
+  dieTypeId: string,
+  componentTypeId: string
+): Promise<void> {
+  await api.del<void>('/die-config/die-type-components', {
+    die_type_id: Number(dieTypeId),
+    component_type_id: Number(componentTypeId),
+  });
 }

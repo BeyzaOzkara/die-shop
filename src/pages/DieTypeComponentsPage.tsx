@@ -25,6 +25,7 @@ export function DieTypeComponentsPage() {
     if (selectedDieType) {
       loadAssignedComponents();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDieType]);
 
   const loadData = async () => {
@@ -50,22 +51,28 @@ export function DieTypeComponentsPage() {
     if (!selectedDieType) return;
 
     try {
-      const assigned = await getComponentTypesForDieType(selectedDieType.id);
+      // service string bekliyor → id'yi stringe çeviriyoruz
+      const assigned = await getComponentTypesForDieType(
+        String(selectedDieType.id)
+      );
       setAssignedComponents(assigned);
 
-      const assignedIds = new Set(assigned.map(c => c.id));
-      const available = componentTypes.filter(c => !assignedIds.has(c.id));
+      const assignedIds = new Set(assigned.map((c) => c.id));
+      const available = componentTypes.filter((c) => !assignedIds.has(c.id));
       setAvailableComponents(available);
     } catch (error) {
       console.error('Atanmış bileşenler yüklenemedi:', error);
     }
   };
 
-  const handleAddComponent = async (componentId: string) => {
+  const handleAddComponent = async (componentId: number) => {
     if (!selectedDieType) return;
 
     try {
-      await addDieTypeComponent(selectedDieType.id, componentId);
+      await addDieTypeComponent(
+        String(selectedDieType.id),
+        String(componentId)
+      );
       loadAssignedComponents();
     } catch (error: any) {
       console.error('Ekleme başarısız:', error);
@@ -73,12 +80,15 @@ export function DieTypeComponentsPage() {
     }
   };
 
-  const handleRemoveComponent = async (componentId: string) => {
+  const handleRemoveComponent = async (componentId: number) => {
     if (!selectedDieType) return;
     if (!confirm('Bu bileşeni kaldırmak istediğinizden emin misiniz?')) return;
 
     try {
-      await removeDieTypeComponent(selectedDieType.id, componentId);
+      await removeDieTypeComponent(
+        String(selectedDieType.id),
+        String(componentId)
+      );
       loadAssignedComponents();
     } catch (error: any) {
       console.error('Kaldırma başarısız:', error);
@@ -90,7 +100,7 @@ export function DieTypeComponentsPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           <p className="text-gray-600 mt-4">Yükleniyor...</p>
         </div>
       </div>
@@ -100,14 +110,20 @@ export function DieTypeComponentsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Kalıp Tipi – Bileşen Eşlemesi</h1>
-        <p className="text-gray-600 mt-1">Her kalıp tipi için kullanılabilir bileşenleri tanımlayın</p>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Kalıp Tipi – Bileşen Eşlemesi
+        </h1>
+        <p className="text-gray-600 mt-1">
+          Her kalıp tipi için kullanılabilir bileşenleri tanımlayın
+        </p>
       </div>
 
       {dieTypes.length === 0 || componentTypes.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <Link2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Eşleme için veri eksik</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Eşleme için veri eksik
+          </h3>
           <p className="text-gray-600 mb-4">
             {dieTypes.length === 0 && 'Önce kalıp tipi tanımlayın. '}
             {componentTypes.length === 0 && 'Önce bileşen tipi tanımlayın.'}
@@ -156,8 +172,12 @@ export function DieTypeComponentsPage() {
                           className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
                         >
                           <div>
-                            <div className="font-medium text-gray-900">{comp.name}</div>
-                            <div className="text-xs text-gray-500">{comp.code}</div>
+                            <div className="font-medium text-gray-900">
+                              {comp.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {comp.code}
+                            </div>
                           </div>
                           <button
                             onClick={() => handleRemoveComponent(comp.id)}
@@ -187,8 +207,12 @@ export function DieTypeComponentsPage() {
                           className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           <div>
-                            <div className="font-medium text-gray-900">{comp.name}</div>
-                            <div className="text-xs text-gray-500">{comp.code}</div>
+                            <div className="font-medium text-gray-900">
+                              {comp.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {comp.code}
+                            </div>
                           </div>
                           <button
                             onClick={() => handleAddComponent(comp.id)}

@@ -58,7 +58,8 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
       setDieTypes(dieTypesData);
       setSteelItems(steel);
       if (dieTypesData.length > 0) {
-        setDieTypeId(dieTypesData[0].id);
+        // id artık number, state string olduğu için stringe çeviriyoruz
+        setDieTypeId(String(dieTypesData[0].id));
       }
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
@@ -101,7 +102,8 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
     updated[index] = { ...updated[index], [field]: value };
 
     if (field === 'stockItemId') {
-      const stockItem = steelItems.find(s => s.id === value);
+      // value string, id number → Number(value) ile cast
+      const stockItem = steelItems.find((s) => s.id === Number(value));
       if (stockItem) {
         updated[index].diameterMm = stockItem.diameter_mm;
         if (updated[index].packageLengthMm > 0) {
@@ -135,8 +137,15 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
     });
   };
 
-  const isValid = dieNumber && dieDiameterMm && totalPackageLengthMm && dieTypeId && selectedComponents.length > 0 &&
-    selectedComponents.every(c => c.componentTypeId && c.stockItemId && c.packageLengthMm > 0);
+  const isValid =
+    dieNumber &&
+    dieDiameterMm &&
+    totalPackageLengthMm &&
+    dieTypeId &&
+    selectedComponents.length > 0 &&
+    selectedComponents.every(
+      (c) => c.componentTypeId && c.stockItemId && c.packageLengthMm > 0
+    );
 
   if (loading) {
     return (
@@ -176,7 +185,7 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               required
             >
               {dieTypes.map((dt) => (
-                <option key={dt.id} value={dt.id}>
+                <option key={dt.id} value={String(dt.id)}>
                   {dt.name}
                 </option>
               ))}
@@ -245,7 +254,9 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
         {availableComponents.length === 0 ? (
           <div className="text-center py-8 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-yellow-800">Bu kalıp tipi için tanımlanmış bileşen yok.</p>
-            <p className="text-sm text-yellow-600 mt-1">Lütfen önce Kalıp Tipi - Bileşen Eşlemesi sayfasından bileşen atayın.</p>
+            <p className="text-sm text-yellow-600 mt-1">
+              Lütfen önce Kalıp Tipi - Bileşen Eşlemesi sayfasından bileşen atayın.
+            </p>
           </div>
         ) : selectedComponents.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
@@ -263,13 +274,15 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
                       </label>
                       <select
                         value={component.componentTypeId}
-                        onChange={(e) => updateComponent(index, 'componentTypeId', e.target.value)}
+                        onChange={(e) =>
+                          updateComponent(index, 'componentTypeId', e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                       >
                         <option value="">Seçiniz</option>
                         {availableComponents.map((ct) => (
-                          <option key={ct.id} value={ct.id}>
+                          <option key={ct.id} value={String(ct.id)}>
                             {ct.name}
                           </option>
                         ))}
@@ -282,13 +295,15 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
                       </label>
                       <select
                         value={component.stockItemId}
-                        onChange={(e) => updateComponent(index, 'stockItemId', e.target.value)}
+                        onChange={(e) =>
+                          updateComponent(index, 'stockItemId', e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                       >
                         <option value="">Seçiniz</option>
                         {steelItems.map((item) => (
-                          <option key={item.id} value={item.id}>
+                          <option key={item.id} value={String(item.id)}>
                             {item.alloy} - Ø{item.diameter_mm}mm
                           </option>
                         ))}
@@ -302,7 +317,9 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
                       <input
                         type="number"
                         value={component.packageLengthMm || ''}
-                        onChange={(e) => updateComponent(index, 'packageLengthMm', e.target.value)}
+                        onChange={(e) =>
+                          updateComponent(index, 'packageLengthMm', e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                         min="0"

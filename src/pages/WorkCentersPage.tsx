@@ -27,7 +27,7 @@ export function WorkCentersPage() {
 
   useEffect(() => {
     if (selectedWorkCenter) {
-      loadOperations(selectedWorkCenter.id);
+      loadOperations(String(selectedWorkCenter.id));
     }
   }, [selectedWorkCenter]);
 
@@ -85,9 +85,16 @@ export function WorkCentersPage() {
     try {
       await updateWorkCenter(workCenterId, { status: newStatus });
       loadWorkCenters();
-      if (selectedWorkCenter?.id === workCenterId) {
-        setSelectedWorkCenter({ ...selectedWorkCenter, status: newStatus });
-      }
+      setSelectedWorkCenter((prev) => {
+      if (!prev) return prev; // null ise dokunma
+        if (String(prev.id) !== workCenterId) return prev; // başka bir merkez ise dokunma
+
+        // Burada prev artık kesin WorkCenter, id: number
+        return { ...prev, status: newStatus };
+      });
+      // if (String(selectedWorkCenter?.id) === workCenterId) {
+      //   setSelectedWorkCenter({ ...selectedWorkCenter, status: newStatus });
+      // }
     } catch (error) {
       console.error('Durum güncellenemedi:', error);
       alert('Durum güncellenirken bir hata oluştu.');
@@ -320,7 +327,7 @@ export function WorkCentersPage() {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleStatusChange(selectedWorkCenter.id, 'Available')}
+                      onClick={() => handleStatusChange(String(selectedWorkCenter.id), 'Available')}
                       className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
                         selectedWorkCenter.status === 'Available'
                           ? 'bg-green-600 text-white'
@@ -330,7 +337,7 @@ export function WorkCentersPage() {
                       Müsait
                     </button>
                     <button
-                      onClick={() => handleStatusChange(selectedWorkCenter.id, 'Busy')}
+                      onClick={() => handleStatusChange(String(selectedWorkCenter.id), 'Busy')}
                       className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
                         selectedWorkCenter.status === 'Busy'
                           ? 'bg-yellow-600 text-white'
@@ -340,7 +347,7 @@ export function WorkCentersPage() {
                       Meşgul
                     </button>
                     <button
-                      onClick={() => handleStatusChange(selectedWorkCenter.id, 'Under Maintenance')}
+                      onClick={() => handleStatusChange(String(selectedWorkCenter.id), 'Under Maintenance')}
                       className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
                         selectedWorkCenter.status === 'Under Maintenance'
                           ? 'bg-red-600 text-white'

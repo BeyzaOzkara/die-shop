@@ -4,7 +4,7 @@ export type OperationStatus = 'Waiting' | 'In Progress' | 'Completed';
 export type DieStatus = 'Draft' | 'Ready' | 'In Production' | 'Completed';
 
 export interface DieType {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description?: string;
@@ -14,7 +14,7 @@ export interface DieType {
 }
 
 export interface WorkCenter {
-  id: string;
+  id: number;
   name: string;
   type: string;
   status: WorkCenterStatus;
@@ -26,7 +26,7 @@ export interface WorkCenter {
 }
 
 export interface ComponentType {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description?: string;
@@ -36,20 +36,20 @@ export interface ComponentType {
 }
 
 export interface DieTypeComponent {
-  id: string;
-  die_type_id: string;
-  component_type_id: string;
+  id: number;
+  die_type_id: number;
+  component_type_id: number;
   created_at: string;
   die_type?: DieType;
   component_type?: ComponentType;
 }
 
 export interface ComponentBOM {
-  id: string;
-  component_type_id: string;
+  id: number;
+  component_type_id: number;
   sequence_number: number;
   operation_name: string;
-  work_center_id: string;
+  work_center_id: number;
   estimated_duration_minutes?: number;
   notes?: string;
   created_at: string;
@@ -57,7 +57,7 @@ export interface ComponentBOM {
 }
 
 export interface SteelStockItem {
-  id: string;
+  id: number;
   alloy: string;
   diameter_mm: number;
   description?: string;
@@ -65,8 +65,8 @@ export interface SteelStockItem {
 }
 
 export interface Lot {
-  id: string;
-  stock_item_id: string;
+  id: number;
+  stock_item_id: number;
   certificate_number: string;
   supplier: string;
   length_mm: number;
@@ -79,12 +79,12 @@ export interface Lot {
 }
 
 export interface Die {
-  id: string;
+  id: number;
   die_number: string;
   die_diameter_mm: number;
   total_package_length_mm: number;
   die_type?: string;
-  die_type_id?: string;
+  die_type_id?: number;
   design_file_url?: string;
   status: DieStatus;
   created_at: string;
@@ -93,10 +93,10 @@ export interface Die {
 }
 
 export interface DieComponent {
-  id: string;
-  die_id: string;
-  component_type_id: string;
-  stock_item_id: string;
+  id: number;
+  die_id: number;
+  component_type_id: number;
+  stock_item_id: number;
   package_length_mm: number;
   theoretical_consumption_kg: number;
   created_at: string;
@@ -105,8 +105,8 @@ export interface DieComponent {
 }
 
 export interface ProductionOrder {
-  id: string;
-  die_id: string;
+  id: number;
+  die_id: number;
   order_number: string;
   status: OrderStatus;
   started_at?: string;
@@ -116,9 +116,9 @@ export interface ProductionOrder {
 }
 
 export interface WorkOrder {
-  id: string;
-  production_order_id: string;
-  die_component_id: string;
+  id: number;
+  production_order_id: number;
+  die_component_id: number;
   order_number: string;
   status: OrderStatus;
   theoretical_consumption_kg: number;
@@ -133,11 +133,11 @@ export interface WorkOrder {
 }
 
 export interface WorkOrderOperation {
-  id: string;
-  work_order_id: string;
+  id: number;
+  work_order_id: number;
   sequence_number: number;
   operation_name: string;
-  work_center_id: string;
+  work_center_id: number;
   operator_name?: string;
   status: OperationStatus;
   estimated_duration_minutes?: number;
@@ -150,9 +150,9 @@ export interface WorkOrderOperation {
 }
 
 export interface StockMovement {
-  id: string;
-  lot_id: string;
-  work_order_id: string;
+  id: number;
+  lot_id: number;
+  work_order_id: number;
   quantity_kg: number;
   movement_date: string;
   notes?: string;
