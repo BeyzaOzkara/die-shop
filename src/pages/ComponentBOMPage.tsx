@@ -6,7 +6,7 @@ import {
   createBOMOperation,
   updateBOMOperation,
   deleteBOMOperation,
-} from '../services/componentService';
+} from '../services/componentService'; // 🔹 componentService -> componentServices
 import { getWorkCenters } from '../services/workCenterService';
 import type { ComponentType, ComponentBOM, WorkCenter } from '../types/database';
 
@@ -35,6 +35,7 @@ export function ComponentBOMPage() {
     if (selectedComponent) {
       loadOperations();
     }
+    // selectedComponent değiştiğinde operasyonları yeniden çekiyoruz
   }, [selectedComponent]);
 
   const loadData = async () => {
@@ -60,8 +61,10 @@ export function ComponentBOMPage() {
     if (!selectedComponent) return;
 
     try {
-      // selectedComponent.id artık number, service de number bekliyor
+      // selectedComponent.id: number, service de number bekliyor
       const data = await getComponentBOM(selectedComponent.id);
+      // İstersen burada sıralama da yapabilirsin
+      data.sort((a, b) => a.sequence_number - b.sequence_number);
       setOperations(data);
     } catch (error) {
       console.error('Operasyonlar yüklenemedi:', error);
@@ -149,7 +152,9 @@ export function ComponentBOMPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Bileşen BOM Yönetimi</h1>
-        <p className="text-gray-600 mt-1">Bileşen tiplerinin operasyon rotalarını tanımlayın</p>
+        <p className="text-gray-600 mt-1">
+          Bileşen tiplerinin operasyon rotalarını tanımlayın
+        </p>
       </div>
 
       {componentTypes.length === 0 ? (
@@ -171,8 +176,7 @@ export function ComponentBOMPage() {
                     key={ct.id}
                     onClick={() => {
                       setSelectedComponent(ct);
-                      setShowForm(false);
-                      resetForm();
+                      resetForm(); // sadece formu temizle, seçimi bozma
                     }}
                     className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                       selectedComponent?.id === ct.id

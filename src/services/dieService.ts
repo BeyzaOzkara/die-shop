@@ -1,5 +1,5 @@
 import { api } from '../lib/api';
-import { calculateTheoreticalConsumption, generateOrderNumber } from '../lib/calculations';
+import { calculateTheoreticalConsumption, generateOrderNumber, generateProductionOrderNumber, generateWorkOrderNumber } from '../lib/calculations';
 import type { Die, DieComponent, ProductionOrder, WorkOrder } from '../types/database';
 import { getComponentBOM } from './componentService';
 
@@ -29,19 +29,47 @@ export async function getDieComponents(dieId: number): Promise<DieComponent[]> {
   return api.get<DieComponent[]>(`/dies/${dieId}/components`);
 }
 
-export async function createDie(
-  die: Omit<Die, 'id' | 'created_at' | 'updated_at'>
-): Promise<Die> {
-  // POST /dies (status'i backend Draft olarak set ediyor)
-  const payload = {
-    die_number: die.die_number,
-    die_diameter_mm: die.die_diameter_mm,
-    total_package_length_mm: die.total_package_length_mm,
-    die_type_id: die.die_type_id,     // number
-    design_file_url: die.design_file_url,
-  };
+// export async function createDie(
+//   die: Omit<Die, 'id' | 'created_at' | 'updated_at'>
+// ): Promise<Die> {
+//   // POST /dies (status'i backend Draft olarak set ediyor)
+//   const payload = {
+//     die_number: die.die_number,
+//     die_diameter_mm: die.die_diameter_mm,
+//     total_package_length_mm: die.total_package_length_mm,
+//     die_type_id: die.die_type_id,     // number
+//     design_file_url: die.design_file_url,
+//   };
 
-  return api.post<Die>('/dies', payload);
+//   return api.post<Die>('/dies', payload);
+// }
+
+export async function createDie(params: {
+  dieNumber: string;
+  dieDiameterMm: number;
+  totalPackageLengthMm: number;
+  dieTypeId: number;
+  designFiles: File[];
+}): Promise<Die> {
+  const fd = new FormData();
+
+  // ✅ Tek payload: yeni alan eklenince sadece buraya eklenecek
+  fd.append(
+    'payload',
+    JSON.stringify({
+      die_number: params.dieNumber,
+      die_diameter_mm: params.dieDiameterMm,
+      total_package_length_mm: params.totalPackageLengthMm,
+      die_type_id: params.dieTypeId,
+      // profile_no, figure_count, customer_name, press_code ...
+    })
+  );
+
+  for (const f of params.designFiles ?? []) {
+    fd.append('design_files', f); // backend param ismiyle aynı
+  }
+
+  return api.post<Die>('/dies', fd);
 }
 
 export async function addComponentToDie(
@@ -84,52 +112,20 @@ export async function createProductionOrder(dieId: number): Promise<ProductionOr
   const die = await getDieById(dieId);
   if (!die) throw new Error('Kalıp bulunamadı');
 
-  // 2) Üretim emri oluştur
-  const orderNumber = generateOrderNumber('UE');
-
   // POST /production-orders
   const productionOrder = await api.post<ProductionOrder>('/production-orders', {
     die_id: dieId,
-    order_number: orderNumber,
+    // order_number: orderNumber,
     status: 'Waiting',
   });
 
-  // 3) Kalıp bileşenlerini çek
-  const components = await getDieComponents(dieId);
-
-  // 4) Her bileşen için İş Emri + Operasyonları oluştur
-  for (const component of components) {
-    const workOrderNumber = generateOrderNumber('IE');
-
-    // POST /work-orders
-    const workOrder = await api.post<WorkOrder>('/work-orders', {
-      production_order_id: productionOrder.id,
-      die_component_id: component.id,
-      order_number: workOrderNumber,
-      theoretical_consumption_kg: component.theoretical_consumption_kg,
-      status: 'Waiting',
-    });
-
-    // Bileşen tipine göre BOM operasyonlarını çek
-    const bomOperations = await getComponentBOM(component.component_type_id);
-
-    // Her BOM operasyonu için İş Emri Operasyon kaydı oluştur
-    for (const bomOp of bomOperations) {
-      // POST /work-order-operations
-      await api.post('/work-order-operations', {
-        work_order_id: workOrder.id,
-        sequence_number: bomOp.sequence_number,
-        operation_name: bomOp.operation_name,
-        work_center_id: bomOp.work_center_id,
-        estimated_duration_minutes: bomOp.estimated_duration_minutes,
-        notes: bomOp.notes,
-        status: 'Waiting',
-      });
-    }
-  }
-
-  // 5) Kalıp durumunu Ready yap
-  await updateDieStatus(dieId, 'Ready');
+  // 4) Kalıp durumunu Waiting yap
+  await updateDieStatus(dieId, 'Waiting');
 
   return productionOrder;
+}
+
+export async function createWorkOrders(productionOrderId: number): Promise<void> {
+  // Backend tüm işi yapıyor: iş emirleri + operasyonlar + kalıp status
+  await api.post(`/production-orders/${productionOrderId}/generate-work-orders`, {});
 }

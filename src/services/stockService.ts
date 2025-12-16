@@ -33,12 +33,16 @@ export async function createLot(payload: {
   return api.post<Lot>('/inventory/lots', payload);
 }
 
-// Belirli stok item için kalan lotlar (WorkOrdersPage’de kullanılıyor)
-export async function getAvailableLots(stockItemId: string | number): Promise<Lot[]> {
-  return api.get<Lot[]>(`/inventory/lots/by-stock-item/${stockItemId}?only_with_remaining=true`);
+// Belirli stok item için kalan lotlar
+export async function getAvailableLots(
+  stockItemId: string | number
+): Promise<Lot[]> {
+  return api.get<Lot[]>(`/inventory/lots/by-stock-item/${stockItemId}`, {
+    only_with_remaining: true,
+  });
 }
 
-// Stok hareketleri (StockPage -> movements tabı)
+// Stok hareketleri
 export async function getStockMovements(): Promise<StockMovement[]> {
   return api.get<StockMovement[]>('/inventory/stock-movements');
 }

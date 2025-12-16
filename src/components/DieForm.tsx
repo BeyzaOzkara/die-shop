@@ -19,7 +19,7 @@ interface DieFormProps {
     dieDiameterMm: number;
     totalPackageLengthMm: number;
     dieTypeId: string;
-    designFileUrl?: string;
+    designFiles: File[];              // ✅ çoklu + opsiyonel (boş array olabilir)
     components: SelectedComponent[];
   }) => void;
   onCancel: () => void;
@@ -30,7 +30,8 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
   const [dieDiameterMm, setDieDiameterMm] = useState('');
   const [totalPackageLengthMm, setTotalPackageLengthMm] = useState('');
   const [dieTypeId, setDieTypeId] = useState('');
-  const [designFileUrl, setDesignFileUrl] = useState('');
+
+  const [designFiles, setDesignFiles] = useState<File[]>([]);
 
   const [dieTypes, setDieTypes] = useState<DieType[]>([]);
   const [availableComponents, setAvailableComponents] = useState<ComponentType[]>([]);
@@ -58,7 +59,6 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
       setDieTypes(dieTypesData);
       setSteelItems(steel);
       if (dieTypesData.length > 0) {
-        // id artık number, state string olduğu için stringe çeviriyoruz
         setDieTypeId(String(dieTypesData[0].id));
       }
     } catch (error) {
@@ -97,15 +97,19 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
     setSelectedComponents(selectedComponents.filter((_, i) => i !== index));
   };
 
-  const updateComponent = (index: number, field: keyof SelectedComponent, value: any) => {
+  const updateComponent = (
+    index: number,
+    field: keyof SelectedComponent,
+    value: any
+  ) => {
     const updated = [...selectedComponents];
     updated[index] = { ...updated[index], [field]: value };
 
     if (field === 'stockItemId') {
-      // value string, id number → Number(value) ile cast
       const stockItem = steelItems.find((s) => s.id === Number(value));
       if (stockItem) {
         updated[index].diameterMm = stockItem.diameter_mm;
+
         if (updated[index].packageLengthMm > 0) {
           updated[index].theoreticalConsumptionKg = calculateTheoreticalConsumption(
             updated[index].packageLengthMm,
@@ -132,7 +136,7 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
       dieDiameterMm: Number(dieDiameterMm),
       totalPackageLengthMm: Number(totalPackageLengthMm),
       dieTypeId,
-      designFileUrl: designFileUrl || undefined,
+      designFiles, // ✅ boş array olabilir
       components: selectedComponents,
     });
   };
@@ -158,6 +162,9 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* ===================== */}
+      {/* Kalıp Bilgileri */}
+      {/* ===================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Kalıp Bilgileri</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -224,19 +231,34 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tasarım Dosyası URL
+              Tasarım Dosyaları (opsiyonel)
             </label>
             <input
-              type="text"
-              value={designFileUrl}
-              onChange={(e) => setDesignFileUrl(e.target.value)}
+              type="file"
+              multiple
+              accept=".dxf,.pdf,.png,.jpg,.jpeg,.step,.stp"
+              onChange={(e) => {
+                setDesignFiles(Array.from(e.target.files ?? []));
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="https://..."
             />
+            {designFiles.length > 0 && (
+              <div className="mt-2 text-xs text-gray-600 space-y-1">
+                {designFiles.map((f) => (
+                  <div key={f.name}>{f.name}</div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Dosya eklemek zorunlu değil. Birden fazla dosya seçebilirsiniz.
+            </p>
           </div>
         </div>
       </div>
 
+      {/* ===================== */}
+      {/* Bileşenler (FULL) */}
+      {/* ===================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Bileşenler</h3>
@@ -344,6 +366,7 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
                     type="button"
                     onClick={() => removeComponent(index)}
                     className="mt-6 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Bileşeni kaldır"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -354,6 +377,9 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
         )}
       </div>
 
+      {/* ===================== */}
+      {/* Actions */}
+      {/* ===================== */}
       <div className="flex gap-3 justify-end">
         <button
           type="button"

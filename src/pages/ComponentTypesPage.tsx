@@ -14,7 +14,12 @@ export function ComponentTypesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    code: string;
+    name: string;
+    description: string;
+    is_active: boolean;
+  }>({
     code: '',
     name: '',
     description: '',
@@ -54,11 +59,11 @@ export function ComponentTypesPage() {
   };
 
   const handleEdit = (componentType: ComponentType) => {
-    setEditingId(componentType.id); // number
+    setEditingId(componentType.id);
     setFormData({
       code: componentType.code,
       name: componentType.name,
-      description: componentType.description || '',
+      description: componentType.description ?? '',
       is_active: componentType.is_active,
     });
     setShowForm(true);
@@ -79,7 +84,7 @@ export function ComponentTypesPage() {
   const toggleActive = async (componentType: ComponentType) => {
     try {
       await updateComponentType(componentType.id, {
-        is_active: !componentType.is_active,
+      is_active: !componentType.is_active,
       });
       loadComponentTypes();
     } catch (error) {
@@ -109,7 +114,9 @@ export function ComponentTypesPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Bileşen Tipi Tanımı</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Bileşen Tipi Tanımı
+          </h1>
           <p className="text-gray-600 mt-1">
             Bileşen tiplerini tanımlayın ve yönetin
           </p>
@@ -129,7 +136,7 @@ export function ComponentTypesPage() {
           className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            {editingId ? 'Bileşen Tipi Düzenle' : 'Yeni Bileşen Tipi'}
+            {editingId !== null ? 'Bileşen Tipi Düzenle' : 'Yeni Bileşen Tipi'}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
@@ -148,7 +155,7 @@ export function ComponentTypesPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
                 placeholder="HAVUZ"
                 required
-                disabled={!!editingId}
+                disabled={editingId !== null}
               />
             </div>
             <div>
@@ -205,7 +212,7 @@ export function ComponentTypesPage() {
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              {editingId ? 'Güncelle' : 'Oluştur'}
+              {editingId !== null ? 'Güncelle' : 'Oluştur'}
             </button>
           </div>
         </form>

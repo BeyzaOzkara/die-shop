@@ -25,8 +25,7 @@ export function DieTypeComponentsPage() {
     if (selectedDieType) {
       loadAssignedComponents();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDieType]);
+  }, [selectedDieType, componentTypes]);
 
   const loadData = async () => {
     try {
@@ -51,10 +50,7 @@ export function DieTypeComponentsPage() {
     if (!selectedDieType) return;
 
     try {
-      // service string bekliyor → id'yi stringe çeviriyoruz
-      const assigned = await getComponentTypesForDieType(
-        String(selectedDieType.id)
-      );
+      const assigned = await getComponentTypesForDieType(String(selectedDieType.id));
       setAssignedComponents(assigned);
 
       const assignedIds = new Set(assigned.map((c) => c.id));
@@ -69,11 +65,8 @@ export function DieTypeComponentsPage() {
     if (!selectedDieType) return;
 
     try {
-      await addDieTypeComponent(
-        String(selectedDieType.id),
-        String(componentId)
-      );
-      loadAssignedComponents();
+      await addDieTypeComponent(String(selectedDieType.id), String(componentId));
+      await loadAssignedComponents();
     } catch (error: any) {
       console.error('Ekleme başarısız:', error);
       alert(error.message || 'Bileşen eklenemedi');
@@ -85,11 +78,8 @@ export function DieTypeComponentsPage() {
     if (!confirm('Bu bileşeni kaldırmak istediğinizden emin misiniz?')) return;
 
     try {
-      await removeDieTypeComponent(
-        String(selectedDieType.id),
-        String(componentId)
-      );
-      loadAssignedComponents();
+      await removeDieTypeComponent(String(selectedDieType.id), String(componentId));
+      await loadAssignedComponents();
     } catch (error: any) {
       console.error('Kaldırma başarısız:', error);
       alert(error.message || 'Bileşen kaldırılamadı');

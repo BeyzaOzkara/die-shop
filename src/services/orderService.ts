@@ -95,18 +95,28 @@ export async function updateOperationStatus(
 ): Promise<WorkOrderOperation> {
   const updates: any = { status };
 
-  if (status === 'In Progress') {
-    updates.started_at = new Date().toISOString();
-    if (operatorName) updates.operator_name = operatorName;
-  } else if (status === 'Completed') {
-    updates.completed_at = new Date().toISOString();
+  if (operatorName) {
+    updates.operator_name = operatorName;
   }
+
   // FastAPI:
   // PATCH /work-order-operations/{id}
   return api.patch<WorkOrderOperation>(
     `/work-order-operations/${Number(id)}`,
     updates
   );
+  // if (status === 'InProgress') {
+  //   updates.started_at = new Date().toISOString();
+  //   if (operatorName) updates.operator_name = operatorName;
+  // } else if (status === 'Completed') {
+  //   updates.completed_at = new Date().toISOString();
+  // }
+  // // FastAPI:
+  // // PATCH /work-order-operations/{id}
+  // return api.patch<WorkOrderOperation>(
+  //   `/work-order-operations/${Number(id)}`,
+  //   updates
+  // );
 }
 
 export async function updateWorkOrderStatus(
@@ -115,7 +125,7 @@ export async function updateWorkOrderStatus(
 ): Promise<WorkOrder> {
   const updates: any = { status };
 
-  if (status === 'In Progress') {
+  if (status === 'InProgress') {
     updates.started_at = new Date().toISOString();
   } else if (status === 'Completed') {
     updates.completed_at = new Date().toISOString();
@@ -160,18 +170,19 @@ export async function completeWorkOrder(
 // Production Order Status
 // =======================
 
-export async function updateProductionOrderStatus(
+export async function updateProductionOrderStatus( // hata veriyor
   id: string,
   status: ProductionOrder['status']
 ): Promise<ProductionOrder> {
   const updates: any = { status };
-
-  if (status === 'In Progress') {
+  console.log("update: ", updates)
+  if (status === 'InProgress') {
     updates.started_at = new Date().toISOString();
   } else if (status === 'Completed') {
     updates.completed_at = new Date().toISOString();
   }
-
+  
+  console.log("update2: ", updates)
   // FastAPI:
   // PATCH /production-orders/{id}
   return api.patch<ProductionOrder>(

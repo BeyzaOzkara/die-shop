@@ -1,42 +1,53 @@
+// src/pages/OperatorsPage.tsx
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Check, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Check, X, UserCircle } from 'lucide-react';
 import {
-  getDieTypes,
-  createDieType,
-  updateDieType,
-  deleteDieType,
-} from '../services/masterDataService';
-import type { DieType } from '../types/database';
+  getOperators,
+  createOperator,
+  updateOperator,
+  deleteOperator,
+} from '../services/operatorService';
+import { getWorkCenters } from '../services/workCenterService';
+import type { Operator, WorkCenter } from '../types/database';
 
-export function DieTypesPage() {
-  const [dieTypes, setDieTypes] = useState<DieType[]>([]);
+type OperatorForm = {
+  rfid_code: string;
+  name: string;
+  employee_number: string;
+  work_center_ids: string[]; // 👈 çoklu seçim
+  is_active: boolean;
+};
+
+export function OperatorsPage() {
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [formData, setFormData] = useState<{
-    code: string;
-    name: string;
-    description: string;
-    is_active: boolean;
-  }>({
-    code: '',
+  const [formData, setFormData] = useState<OperatorForm>({
+    rfid_code: '',
     name: '',
-    description: '',
+    employee_number: '',
+    work_center_ids: [],
     is_active: true,
   });
 
   useEffect(() => {
-    loadDieTypes();
+    loadData();
   }, []);
 
-  const loadDieTypes = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const data = await getDieTypes();
-      setDieTypes(data);
+      const [operatorsData, centersData] = await Promise.all([
+        getOperators(),
+        getWorkCenters(),
+      ]);
+      setOperators(operatorsData);
+      setWorkCenters(centersData);
     } catch (error) {
-      console.error('Kalıp tipleri yüklenemedi:', error);
+      console.error('Veri yükleme hatası:', error);
     } finally {
       setLoading(false);
     }
@@ -44,59 +55,84 @@ export function DieTypesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const payload = {
+      rfid_code: formData.rfid_code,
+      name: formData.name,
+      employee_number: formData.employee_number || undefined,
+      work_center_ids: formData.work_center_ids.map((id) => Number(id)),
+      is_active: formData.is_active,
+    };
+
     try {
       if (editingId !== null) {
-        await updateDieType(editingId, formData);
+        await updateOperator(editingId, payload);
       } else {
-        await createDieType(formData);
+        await createOperator(payload);
       }
       resetForm();
-      loadDieTypes();
+      loadData();
     } catch (error: any) {
       console.error('İşlem başarısız:', error);
       alert(error.message || 'Bir hata oluştu');
     }
   };
 
-  const handleEdit = (dieType: DieType) => {
-    setEditingId(dieType.id);
+  const handleEdit = (operator: Operator) => {
+    setEditingId(operator.id);
     setFormData({
-      code: dieType.code,
-      name: dieType.name,
-      description: dieType.description ?? '',
-      is_active: dieType.is_active,
+      rfid_code: operator.rfid_code,
+      name: operator.name,
+      employee_number: operator.employee_number || '',
+      work_center_ids:
+        operator.work_centers?.map((wc) => String(wc.id)) ?? [],
+      is_active: operator.is_active,
     });
     setShowForm(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Bu kalıp tipini silmek istediğinizden emin misiniz?')) return;
+    if (!confirm('Bu operatörü silmek istediğinizden emin misiniz?')) return;
 
     try {
-      await deleteDieType(id);
-      loadDieTypes();
+      await deleteOperator(id);
+      loadData();
     } catch (error: any) {
       console.error('Silme başarısız:', error);
       alert(error.message || 'Silme işlemi başarısız oldu');
     }
   };
 
-  const toggleActive = async (dieType: DieType) => {
+  const toggleActive = async (operator: Operator) => {
     try {
-      await updateDieType(dieType.id, {
-        is_active: !dieType.is_active,
-      });
-      loadDieTypes();
+      await updateOperator(operator.id, { is_active: !operator.is_active });
     } catch (error) {
       console.error('Durum değiştirilemedi:', error);
       alert('Durum değiştirme başarısız oldu');
+    } finally {
+      loadData();
     }
   };
 
   const resetForm = () => {
-    setFormData({ code: '', name: '', description: '', is_active: true });
+    setFormData({
+      rfid_code: '',
+      name: '',
+      employee_number: '',
+      work_center_ids: [],
+      is_active: true,
+    });
     setEditingId(null);
     setShowForm(false);
+  };
+
+  const handleWorkCenterChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const selected = Array.from(e.target.selectedOptions).map(
+      (opt) => opt.value
+    );
+    setFormData((prev) => ({ ...prev, work_center_ids: selected }));
   };
 
   if (loading) {
@@ -114,9 +150,9 @@ export function DieTypesPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Kalıp Tipi Tanımı</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Operatör Yönetimi</h1>
           <p className="text-gray-600 mt-1">
-            Kalıp tiplerini tanımlayın ve yönetin
+            Atölye operatörlerini tanımlayın ve yönetin
           </p>
         </div>
         <button
@@ -124,7 +160,7 @@ export function DieTypesPage() {
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
-          Yeni Kalıp Tipi
+          Yeni Operatör
         </button>
       </div>
 
@@ -134,31 +170,27 @@ export function DieTypesPage() {
           className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            {editingId !== null ? 'Kalıp Tipi Düzenle' : 'Yeni Kalıp Tipi'}
+            {editingId !== null ? 'Operatör Düzenle' : 'Yeni Operatör'}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Kod *
+                RFID Kodu *
               </label>
               <input
                 type="text"
-                value={formData.code}
+                value={formData.rfid_code}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    code: e.target.value.toUpperCase(),
-                  })
+                  setFormData({ ...formData, rfid_code: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
-                placeholder="SOLID"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
                 disabled={editingId !== null}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ad *
+                Ad Soyad *
               </label>
               <input
                 type="text"
@@ -167,25 +199,51 @@ export function DieTypesPage() {
                   setFormData({ ...formData, name: e.target.value })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Solid Kalıp"
                 required
               />
             </div>
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Açıklama
+                Sicil No
               </label>
-              <textarea
-                value={formData.description}
+              <input
+                type="text"
+                value={formData.employee_number}
                 onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
+                  setFormData({
+                    ...formData,
+                    employee_number: e.target.value,
+                  })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={2}
               />
             </div>
+
             <div>
-              <label className="flex items-center gap-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Çalışma Merkezleri *
+              </label>
+              <select
+                multiple
+                value={formData.work_center_ids}
+                onChange={handleWorkCenterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
+                required
+              >
+                {workCenters.map((wc) => (
+                  <option key={wc.id} value={String(wc.id)}>
+                    {wc.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                CTRL (veya Mac’te ⌘) + tıklayarak birden fazla merkez
+                seçebilirsiniz.
+              </p>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 mt-6 md:mt-8">
                 <input
                   type="checkbox"
                   checked={formData.is_active}
@@ -218,13 +276,14 @@ export function DieTypesPage() {
         </form>
       )}
 
-      {dieTypes.length === 0 ? (
+      {operators.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <UserCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Henüz kalıp tipi yok
+            Henüz operatör yok
           </h3>
           <p className="text-gray-600">
-            Yukarıdaki butonu kullanarak yeni tip ekleyin
+            Yukarıdaki butonu kullanarak yeni operatör ekleyin
           </p>
         </div>
       ) : (
@@ -233,13 +292,16 @@ export function DieTypesPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Kod
+                  RFID Kodu
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ad
+                  Ad Soyad
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Açıklama
+                  Sicil No
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Çalışma Merkezleri
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Durum
@@ -250,27 +312,32 @@ export function DieTypesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {dieTypes.map((dieType) => (
-                <tr key={dieType.id} className="hover:bg-gray-50">
+              {operators.map((operator) => (
+                <tr key={operator.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {dieType.code}
+                    {operator.rfid_code}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {dieType.name}
+                    {operator.name}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {dieType.description || '-'}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {operator.employee_number || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {operator.work_centers && operator.work_centers.length > 0
+                      ? operator.work_centers.map((wc) => wc.name).join(', ')
+                      : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
-                      onClick={() => toggleActive(dieType)}
+                      onClick={() => toggleActive(operator)}
                       className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium cursor-pointer ${
-                        dieType.is_active
+                        operator.is_active
                           ? 'bg-green-100 text-green-800 hover:bg-green-200'
                           : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                       }`}
                     >
-                      {dieType.is_active ? (
+                      {operator.is_active ? (
                         <>
                           <Check className="w-3 h-3" />
                           Aktif
@@ -285,13 +352,13 @@ export function DieTypesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
-                      onClick={() => handleEdit(dieType)}
+                      onClick={() => handleEdit(operator)}
                       className="text-blue-600 hover:text-blue-900 mr-4"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(dieType.id)}
+                      onClick={() => handleDelete(operator.id)}
                       className="text-red-600 hover:text-red-900"
                     >
                       <Trash2 className="w-4 h-4" />

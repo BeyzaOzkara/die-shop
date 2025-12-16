@@ -9,6 +9,16 @@ import {
 } from '../services/dieService';
 import type { Die } from '../types/database';
 
+const BASE =
+  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
+const mediaUrl = (storagePath: string) => {
+  // Windows \ → URL /
+  const normalized = storagePath.replace(/\\/g, '/');
+  return `${BASE}/media/${normalized}`;
+};
+
+
 export function DiesPage() {
   const [dies, setDies] = useState<Die[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -32,24 +42,21 @@ export function DiesPage() {
 
   const handleCreateDie = async (formData: any) => {
     try {
-      // die_type_id: select’ten string geliyor, number’a çeviriyoruz
       const die = await createDie({
-        die_number: formData.dieNumber,
-        die_diameter_mm: formData.dieDiameterMm,
-        total_package_length_mm: formData.totalPackageLengthMm,
-        die_type_id: Number(formData.dieTypeId),
-        design_file_url: formData.designFileUrl,
-        status: 'Draft',
+        dieNumber: formData.dieNumber,
+        dieDiameterMm: Number(formData.dieDiameterMm),
+        totalPackageLengthMm: Number(formData.totalPackageLengthMm),
+        dieTypeId: Number(formData.dieTypeId),
+        designFiles: formData.designFiles ?? [],
       });
 
-      // componentTypeId ve stockItemId de select’lerden string geliyor → number
       for (const component of formData.components) {
         await addComponentToDie(
-          die.id,                               // number
-          Number(component.componentTypeId),    // string → number
-          Number(component.stockItemId),        // string → number
-          component.packageLengthMm,
-          component.diameterMm
+          die.id,
+          Number(component.componentTypeId),
+          Number(component.stockItemId),
+          Number(component.packageLengthMm),
+          Number(component.diameterMm)
         );
       }
 
@@ -65,7 +72,7 @@ export function DiesPage() {
     if (!confirm('Bu kalıp için üretim emri oluşturulsun mu?')) return;
 
     try {
-      await createProductionOrder(dieId);
+      await createProductionOrder(dieId); // dieId zaten number
       loadDies();
       alert('Üretim emri başarıyla oluşturuldu.');
     } catch (error) {
@@ -77,8 +84,9 @@ export function DiesPage() {
   const getStatusColor = (status: Die['status']) => {
     const colors: Record<Die['status'], string> = {
       Draft: 'bg-gray-100 text-gray-800',
+      Waiting: 'bg-blue-100 text-yellow-800',
       Ready: 'bg-blue-100 text-blue-800',
-      'In Production': 'bg-yellow-100 text-yellow-800',
+      'InProduction': 'bg-yellow-100 text-yellow-800',
       Completed: 'bg-green-100 text-green-800',
     };
     return colors[status] || colors.Draft;
@@ -87,8 +95,9 @@ export function DiesPage() {
   const getStatusText = (status: Die['status']) => {
     const texts: Record<Die['status'], string> = {
       Draft: 'Taslak',
+      Waiting: 'Üretim Emri Onayı Bekleniyor',
       Ready: 'Hazır',
-      'In Production': 'Üretimde',
+      'InProduction': 'Üretimde',
       Completed: 'Tamamlandı',
     };
     return texts[status] || status;
@@ -100,7 +109,10 @@ export function DiesPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-6">
           Yeni Kalıp Oluştur
         </h1>
-        <DieForm onSubmit={handleCreateDie} onCancel={() => setShowForm(false)} />
+        <DieForm
+          onSubmit={handleCreateDie}
+          onCancel={() => setShowForm(false)}
+        />
       </div>
     );
   }
@@ -158,7 +170,7 @@ export function DiesPage() {
                     {die.die_number}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {die.die_type_ref?.name || die.die_type || 'N/A'}
+                    {die.die_type_ref?.name ?? 'N/A'}
                   </p>
                 </div>
                 <span
@@ -183,19 +195,23 @@ export function DiesPage() {
                     {die.total_package_length_mm} mm
                   </span>
                 </div>
-                {die.design_file_url && (
-                  <div className="text-sm">
-                    <a
-                      href={die.design_file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Tasarım Dosyası
-                    </a>
+                {die.files?.length > 0 && (
+                  <div className="text-sm space-y-1">
+                    {die.files.map((f) => (
+                      <a
+                        key={f.id}
+                        href={`${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000"}/media/${f.storage_path}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        {f.original_name}
+                      </a>
+                    ))}
                   </div>
                 )}
+                
               </div>
 
               {die.status === 'Draft' && (

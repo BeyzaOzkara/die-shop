@@ -5,8 +5,9 @@ import {
   createSteelStockItem,
   getLots,
   createLot,
+  getStockMovements, // 🔹 buraya taşındı
 } from '../services/stockService';
-import { getStockMovements } from '../services/orderService';
+// import { getStockMovements } from '../services/orderService'; // 🔹 ARTIK GEREK YOK
 import type { SteelStockItem, Lot, StockMovement } from '../types/database';
 
 export function StockPage() {
@@ -18,7 +19,12 @@ export function StockPage() {
   const [showLotForm, setShowLotForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const [newItem, setNewItem] = useState({ alloy: '', diameter_mm: '', description: '' });
+  const [newItem, setNewItem] = useState({
+    alloy: '',
+    diameter_mm: '',
+    description: '',
+  });
+
   const [newLot, setNewLot] = useState({
     stock_item_id: '',
     certificate_number: '',
@@ -36,6 +42,8 @@ export function StockPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+
+      // Çelik ürünler her tabda lazım (lot formunda dropdown için)
       const items = await getSteelStockItems();
       setStockItems(items);
 
@@ -105,7 +113,7 @@ export function StockPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           <p className="text-gray-600 mt-4">Yükleniyor...</p>
         </div>
       </div>
@@ -116,9 +124,12 @@ export function StockPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Stok Yönetimi</h1>
-        <p className="text-gray-600 mt-1">Çelik ürünleri, lotları ve hareketleri yönetin</p>
+        <p className="text-gray-600 mt-1">
+          Çelik ürünleri, lotları ve hareketleri yönetin
+        </p>
       </div>
 
+      {/* TABLAR */}
       <div className="mb-6 border-b border-gray-200">
         <nav className="flex gap-8">
           <button
@@ -154,6 +165,7 @@ export function StockPage() {
         </nav>
       </div>
 
+      {/* ÇELİK ÜRÜNLER */}
       {activeTab === 'items' && (
         <div>
           <div className="flex justify-end mb-6">
@@ -167,8 +179,13 @@ export function StockPage() {
           </div>
 
           {showItemForm && (
-            <form onSubmit={handleCreateItem} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Çelik Ürün</h3>
+            <form
+              onSubmit={handleCreateItem}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Yeni Çelik Ürün
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -177,7 +194,9 @@ export function StockPage() {
                   <input
                     type="text"
                     value={newItem.alloy}
-                    onChange={(e) => setNewItem({ ...newItem, alloy: e.target.value })}
+                    onChange={(e) =>
+                      setNewItem({ ...newItem, alloy: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
@@ -189,7 +208,12 @@ export function StockPage() {
                   <input
                     type="number"
                     value={newItem.diameter_mm}
-                    onChange={(e) => setNewItem({ ...newItem, diameter_mm: e.target.value })}
+                    onChange={(e) =>
+                      setNewItem({
+                        ...newItem,
+                        diameter_mm: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     step="0.01"
                     required
@@ -202,7 +226,12 @@ export function StockPage() {
                   <input
                     type="text"
                     value={newItem.description}
-                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                    onChange={(e) =>
+                      setNewItem({
+                        ...newItem,
+                        description: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -228,8 +257,12 @@ export function StockPage() {
           {stockItems.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz çelik ürün yok</h3>
-              <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni ürün ekleyin</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Henüz çelik ürün yok
+              </h3>
+              <p className="text-gray-600">
+                Yukarıdaki butonu kullanarak yeni ürün ekleyin
+              </p>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -268,6 +301,7 @@ export function StockPage() {
         </div>
       )}
 
+      {/* LOTLAR */}
       {activeTab === 'lots' && (
         <div>
           <div className="flex justify-end mb-6">
@@ -281,8 +315,13 @@ export function StockPage() {
           </div>
 
           {showLotForm && (
-            <form onSubmit={handleCreateLot} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Lot</h3>
+            <form
+              onSubmit={handleCreateLot}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Yeni Lot
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -290,7 +329,12 @@ export function StockPage() {
                   </label>
                   <select
                     value={newLot.stock_item_id}
-                    onChange={(e) => setNewLot({ ...newLot, stock_item_id: e.target.value })}
+                    onChange={(e) =>
+                      setNewLot({
+                        ...newLot,
+                        stock_item_id: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
@@ -309,7 +353,12 @@ export function StockPage() {
                   <input
                     type="text"
                     value={newLot.certificate_number}
-                    onChange={(e) => setNewLot({ ...newLot, certificate_number: e.target.value })}
+                    onChange={(e) =>
+                      setNewLot({
+                        ...newLot,
+                        certificate_number: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
@@ -321,7 +370,12 @@ export function StockPage() {
                   <input
                     type="text"
                     value={newLot.supplier}
-                    onChange={(e) => setNewLot({ ...newLot, supplier: e.target.value })}
+                    onChange={(e) =>
+                      setNewLot({
+                        ...newLot,
+                        supplier: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
@@ -333,7 +387,12 @@ export function StockPage() {
                   <input
                     type="number"
                     value={newLot.length_mm}
-                    onChange={(e) => setNewLot({ ...newLot, length_mm: e.target.value })}
+                    onChange={(e) =>
+                      setNewLot({
+                        ...newLot,
+                        length_mm: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     step="0.01"
                     required
@@ -346,7 +405,12 @@ export function StockPage() {
                   <input
                     type="number"
                     value={newLot.gross_weight_kg}
-                    onChange={(e) => setNewLot({ ...newLot, gross_weight_kg: e.target.value })}
+                    onChange={(e) =>
+                      setNewLot({
+                        ...newLot,
+                        gross_weight_kg: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     step="0.01"
                     required
@@ -359,7 +423,12 @@ export function StockPage() {
                   <input
                     type="date"
                     value={newLot.received_date}
-                    onChange={(e) => setNewLot({ ...newLot, received_date: e.target.value })}
+                    onChange={(e) =>
+                      setNewLot({
+                        ...newLot,
+                        received_date: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
@@ -371,7 +440,12 @@ export function StockPage() {
                   <input
                     type="text"
                     value={newLot.certificate_file_url}
-                    onChange={(e) => setNewLot({ ...newLot, certificate_file_url: e.target.value })}
+                    onChange={(e) =>
+                      setNewLot({
+                        ...newLot,
+                        certificate_file_url: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="https://..."
                   />
@@ -398,8 +472,12 @@ export function StockPage() {
           {lots.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz lot yok</h3>
-              <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni lot ekleyin</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Henüz lot yok
+              </h3>
+              <p className="text-gray-600">
+                Yukarıdaki butonu kullanarak yeni lot ekleyin
+              </p>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -442,7 +520,13 @@ export function StockPage() {
                         {lot.gross_weight_kg.toFixed(2)} kg
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={lot.remaining_kg > 0 ? 'text-green-600 font-medium' : 'text-red-600'}>
+                        <span
+                          className={
+                            lot.remaining_kg > 0
+                              ? 'text-green-600 font-medium'
+                              : 'text-red-600'
+                          }
+                        >
                           {lot.remaining_kg.toFixed(2)} kg
                         </span>
                       </td>
@@ -458,13 +542,18 @@ export function StockPage() {
         </div>
       )}
 
+      {/* STOK HAREKETLERİ */}
       {activeTab === 'movements' && (
         <div>
           {movements.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz hareket yok</h3>
-              <p className="text-gray-600">İş emirleri tamamlandığında stok hareketleri burada görünecektir</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Henüz hareket yok
+              </h3>
+              <p className="text-gray-600">
+                İş emirleri tamamlandığında stok hareketleri burada görünecektir
+              </p>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">

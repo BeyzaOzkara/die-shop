@@ -5,12 +5,15 @@ import {
   getWorkOrders,
   updateProductionOrderStatus,
 } from '../services/orderService';
-import type { ProductionOrder, WorkOrder } from '../types/database';
+import { createWorkOrders } from '../services/dieService';
+import { getDieTypes } from '../services/masterDataService';
+import type { ProductionOrder, WorkOrder, DieType } from '../types/database';
 
 export function ProductionOrdersPage() {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [dieTypes, setDieTypes] = useState<DieType[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,16 +22,19 @@ export function ProductionOrdersPage() {
 
   useEffect(() => {
     if (selectedOrder) {
-      // selectedOrder.id: number
-      loadWorkOrders(selectedOrder.id);
+      loadWorkOrders(selectedOrder.id); // id: number
     }
   }, [selectedOrder]);
 
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const data = await getProductionOrders();
-      setOrders(data);
+      const [ordersData, dieTypesData] = await Promise.all([
+        getProductionOrders(),
+        getDieTypes(),
+      ]);
+      setOrders(ordersData);
+      setDieTypes(dieTypesData);
     } catch (error) {
       console.error('Üretim emirleri yüklenemedi:', error);
     } finally {
@@ -36,7 +42,6 @@ export function ProductionOrdersPage() {
     }
   };
 
-  // 🔹 id burada number, servise giderken String'e çevireceğiz
   const loadWorkOrders = async (productionOrderId: number) => {
     try {
       const data = await getWorkOrders(String(productionOrderId));
@@ -46,15 +51,18 @@ export function ProductionOrdersPage() {
     }
   };
 
-  // 🔹 orderId de number, servise giderken String
-  const handleStatusChange = async (
-    orderId: number,
+  const handleStatusChange = async ( // 
+    order: ProductionOrder,
     newStatus: ProductionOrder['status']
   ) => {
     try {
-      await updateProductionOrderStatus(String(orderId), newStatus);
+      await updateProductionOrderStatus(String(order.id), newStatus);
+      if (newStatus === 'InProgress') { // üretim emrine onay verildiğinde iş emirlerini oluştur
+        await createWorkOrders(order.id);//, order.die_id);
+      }
+
       await loadOrders();
-      if (selectedOrder?.id === orderId) {
+      if (selectedOrder?.id === order.id) {
         setSelectedOrder({ ...selectedOrder, status: newStatus });
       }
     } catch (error) {
@@ -66,7 +74,7 @@ export function ProductionOrdersPage() {
   const getStatusColor = (status: ProductionOrder['status']) => {
     const colors = {
       Waiting: 'bg-gray-100 text-gray-800',
-      'In Progress': 'bg-yellow-100 text-yellow-800',
+      'InProgress': 'bg-yellow-100 text-yellow-800',
       Completed: 'bg-green-100 text-green-800',
       Cancelled: 'bg-red-100 text-red-800',
     } as const;
@@ -76,11 +84,34 @@ export function ProductionOrdersPage() {
   const getStatusText = (status: ProductionOrder['status']) => {
     const texts = {
       Waiting: 'Bekliyor',
-      'In Progress': 'Devam Ediyor',
+      'InProgress': 'Devam Ediyor',
       Completed: 'Tamamlandı',
       Cancelled: 'İptal Edildi',
     } as const;
     return texts[status] || status;
+  };
+
+  // 🔹 Kalıp tipinin adını die_type_id üzerinden bul
+  const getDieTypeName = (order: ProductionOrder) => {
+    const die = order.die;
+    if (!die) return '-';
+
+    // 1) Eğer bu endpoint ileride die_type_ref döndürmeye başlarsa
+    const asAny = die as any;
+    if (asAny.die_type_ref?.name) {
+      return asAny.die_type_ref.name;
+    }
+    if (typeof asAny.die_type === 'string') {
+      return asAny.die_type;
+    }
+
+    // 2) Şu an elimizde olan: die_type_id
+    if (die.die_type_id != null) {
+      const dt = dieTypes.find((t) => t.id === die.die_type_id);
+      if (dt) return dt.name;
+    }
+
+    return '-';
   };
 
   if (loading) {
@@ -175,10 +206,7 @@ export function ProductionOrdersPage() {
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-sm text-gray-600 mb-1">Kalıp Tipi</p>
                     <p className="font-medium text-gray-900">
-                      {/* backend die içine tip adını ne koyduysa oradan okursun */}
-                      {selectedOrder.die?.die_type ??
-                        selectedOrder.die?.die_type?.name ??
-                        '-'}
+                      {getDieTypeName(selectedOrder)}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -193,20 +221,20 @@ export function ProductionOrdersPage() {
                   <div className="mb-6">
                     <button
                       onClick={() =>
-                        handleStatusChange(selectedOrder.id, 'In Progress')
+                        handleStatusChange(selectedOrder, 'InProgress')
                       }
                       className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                     >
-                      Üretime Başla
+                      Üretim Onayı Ver
                     </button>
-                  </div>
+                  </div> 
                 )}
 
-                {selectedOrder.status === 'In Progress' && (
+                {selectedOrder.status === 'InProgress' && (
                   <div className="mb-6 flex gap-3">
                     <button
                       onClick={() =>
-                        handleStatusChange(selectedOrder.id, 'Completed')
+                        handleStatusChange(selectedOrder, 'Completed')
                       }
                       className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                     >
@@ -214,7 +242,7 @@ export function ProductionOrdersPage() {
                     </button>
                     <button
                       onClick={() =>
-                        handleStatusChange(selectedOrder.id, 'Cancelled')
+                        handleStatusChange(selectedOrder, 'Cancelled')
                       }
                       className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
                     >
