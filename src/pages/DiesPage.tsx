@@ -8,16 +8,22 @@ import {
   createProductionOrder,
 } from '../services/dieService';
 import type { Die } from '../types/database';
+import { mediaUrl } from "../lib/media";
 
-const BASE =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+const VIEWER_BASE =
+  import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "http://arslan:8082";
 
-const mediaUrl = (storagePath: string) => {
-  // Windows \ → URL /
-  const normalized = storagePath.replace(/\\/g, '/');
-  return `${BASE}/media/${normalized}`;
+// const BASE =
+//   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
+// const mediaUrl = (storagePath: string) => {
+//   const normalized = storagePath.replace(/\\/g, "/");
+//   return `${BASE}/media/${normalized}`;
+// };
+
+const dxfViewerUrl = (fileUrl: string) => {
+  return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
 };
-
 
 export function DiesPage() {
   const [dies, setDies] = useState<Die[]>([]);
@@ -195,22 +201,31 @@ export function DiesPage() {
                     {die.total_package_length_mm} mm
                   </span>
                 </div>
-                {die.files?.length > 0 && (
+                {die?.files?.length ? (
                   <div className="text-sm space-y-1">
-                    {die.files.map((f) => (
-                      <a
-                        key={f.id}
-                        href={`${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000"}/media/${f.storage_path}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                      >
-                        <Eye className="w-4 h-4" />
-                        {f.original_name}
-                      </a>
-                    ))}
+                    {die.files.map((f) => {
+                      const fileUrl = mediaUrl(f.storage_path);
+                      const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
+
+                      const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
+
+                      return (
+                        <a
+                          key={f.id}
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
+                        >
+                          <Eye className="w-4 h-4" />
+                          {f.original_name}
+                          {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
+                        </a>
+                      );
+                    })}
                   </div>
-                )}
+                ): null}
                 
               </div>
 

@@ -8,6 +8,7 @@ import {
   Check,
   Clock,
   AlertCircle,
+  Eye
 } from 'lucide-react';
 import {
   getWorkCenterOperations,
@@ -17,11 +18,18 @@ import {
 } from '../../services/operatorService';
 import type { Operator, WorkOrderOperation, WorkCenter } from '../../types/database';
 import { ApiError } from '../../lib/api';
+import { mediaUrl } from '../../lib/media';
 
 interface WorkCenterQueuePageProps {
   operator: Operator;
   onLogout: () => void;
 }
+
+const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "http://arslan:8082";
+
+const dxfViewerUrl = (fileUrl: string) => {
+  return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
+};
 
 export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageProps) {
   const [operations, setOperations] = useState<WorkOrderOperation[]>([]);
@@ -273,6 +281,36 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                         </div>
                       </div>
 
+                      {(activeOperation.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
+                        <div className="mt-4 bg-white rounded-lg p-3">
+                          <p className="text-sm text-gray-600 mb-2">Kalıp Dosyaları</p>
+
+                          <div className="space-y-1 text-sm">
+                            {(activeOperation.work_order?.production_order?.die?.files ?? []).map((f) => {
+                                const fileUrl = mediaUrl(f.storage_path);
+                                const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
+          
+                                const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
+          
+                                return (
+                                  <a
+                                    key={f.id}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                    title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    {f.original_name}
+                                    {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
+                                  </a>
+                                ); }
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4 mt-4">
                         <div className="bg-white rounded-lg p-3">
                           <p className="text-sm text-gray-600">Kalıp</p>
@@ -382,6 +420,37 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                           {getStatusText(operation.status)}
                         </span>
                       </div>
+
+                      {(operation.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-xs text-gray-600 mb-2">Kalıp Dosyaları</p>
+
+                          <div className="space-y-1 text-sm">
+                            {(operation.work_order?.production_order?.die?.files ?? []).map((f) => {
+                                const fileUrl = mediaUrl(f.storage_path);
+                                const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
+          
+                                const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
+          
+                                return (
+                                  <a
+                                    key={f.id}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                    title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    {f.original_name}
+                                    {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
+                                  </a>
+                                ); }
+                            )}
+                          </div>
+                        </div>
+                      )}
+
 
                       <div className="space-y-2 mb-4 text-sm">
                         <div className="flex justify-between">

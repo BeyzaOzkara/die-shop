@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, ChevronRight } from 'lucide-react';
+import { ClipboardList, ChevronRight, Eye } from 'lucide-react';
 import {
   getProductionOrders,
   getWorkOrders,
@@ -8,6 +8,13 @@ import {
 import { createWorkOrders } from '../services/dieService';
 import { getDieTypes } from '../services/masterDataService';
 import type { ProductionOrder, WorkOrder, DieType } from '../types/database';
+import { mediaUrl } from "../lib/media";
+
+const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "http://arslan:8082";
+
+const dxfViewerUrl = (fileUrl: string) => {
+  return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
+};
 
 export function ProductionOrdersPage() {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
@@ -193,6 +200,7 @@ export function ProductionOrdersPage() {
                       Kalıp: {selectedOrder.die?.die_number}
                     </p>
                   </div>
+
                   <span
                     className={`px-4 py-2 rounded-lg text-sm font-medium ${getStatusColor(
                       selectedOrder.status
@@ -201,6 +209,35 @@ export function ProductionOrdersPage() {
                     {getStatusText(selectedOrder.status)}
                   </span>
                 </div>
+                
+                {selectedOrder?.die?.files?.length ? (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Kalıp Dosyaları</h3>
+                    <div className="text-sm space-y-1">
+                      {selectedOrder.die.files.map((f) => {
+                        const fileUrl = mediaUrl(f.storage_path);
+                        const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
+  
+                        const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
+  
+                        return (
+                          <a
+                            key={f.id}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                            title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
+                          >
+                            <Eye className="w-4 h-4" />
+                            {f.original_name}
+                            {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
+                          </a>
+                        ); }
+                    )}
+                    </div>
+                  </div>
+                ): null}
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-50 rounded-lg p-4">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Play, Check } from 'lucide-react';
+import { Settings, Play, Check, Eye } from 'lucide-react';
 import {
   getWorkOrders,
   getWorkOrderOperations,
@@ -8,6 +8,13 @@ import {
 } from '../services/orderService';
 import { getAvailableLots } from '../services/stockService';
 import type { WorkOrder, WorkOrderOperation, Lot } from '../types/database';
+import { mediaUrl } from "../lib/media";
+
+const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "http://arslan:8082";
+
+const dxfViewerUrl = (fileUrl: string) => {
+  return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
+};
 
 export function WorkOrdersPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -113,28 +120,30 @@ export function WorkOrdersPage() {
     }
   };
 
+  type UiStatus = WorkOrder['status'] | WorkOrderOperation['status'];
+
   // hem WorkOrder hem WorkOrderOperation status'leri için kullanıyoruz
-  const getStatusColor = (status: WorkOrder['status'] | WorkOrderOperation['status']) => {
-    const colors = {
-      Waiting: 'bg-gray-100 text-gray-800',
-      'InProgress': 'bg-yellow-100 text-yellow-800',
-      Completed: 'bg-green-100 text-green-800',
-      Cancelled: 'bg-red-100 text-red-800',
-    } as const;
-
-    return colors[status] || colors.Waiting;
+  const getStatusColor = (status: UiStatus) => {
+  const colors: Record<UiStatus, string> = {
+    Waiting: 'bg-gray-100 text-gray-800',
+    InProgress: 'bg-yellow-100 text-yellow-800',
+    Completed: 'bg-green-100 text-green-800',
+    Cancelled: 'bg-red-100 text-red-800',
+    Paused: 'bg-orange-100 text-orange-800',
   };
+  return colors[status];
+};
 
-  const getStatusText = (status: WorkOrder['status'] | WorkOrderOperation['status']) => {
-    const texts = {
-      Waiting: 'Bekliyor',
-      'InProgress': 'Devam Ediyor',
-      Completed: 'Tamamlandı',
-      Cancelled: 'İptal Edildi',
-    } as const;
-
-    return texts[status] || status;
+const getStatusText = (status: UiStatus) => {
+  const texts: Record<UiStatus, string> = {
+    Waiting: 'Bekliyor',
+    InProgress: 'Devam Ediyor',
+    Completed: 'Tamamlandı',
+    Cancelled: 'İptal Edildi',
+    Paused: 'Duraklatıldı',
   };
+  return texts[status];
+};
 
   const getCurrentOperationText = (ops: WorkOrderOperation[]) => {
     if (ops.length === 0) {
@@ -235,6 +244,39 @@ export function WorkOrdersPage() {
                     {getStatusText(selectedWorkOrder.status)}
                   </span>
                 </div>
+
+                {selectedWorkOrder?.production_order?.die?.files?.length ? (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Kalıp Dosyaları
+                    </h3>
+
+                    <div className="text-sm space-y-1">
+                      {selectedWorkOrder.production_order.die.files.map((f) => {
+                        const fileUrl = mediaUrl(f.storage_path);
+                        const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
+  
+                        const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
+  
+                        return (
+                          <a
+                            key={f.id}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                            title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
+                          >
+                            <Eye className="w-4 h-4" />
+                            {f.original_name}
+                            {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
+                          </a>
+                        ); }
+                    )}
+                    </div>
+                  </div>
+                ) : null}
+
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-50 rounded-lg p-4">
