@@ -201,12 +201,6 @@ export function DiesPage() {
                     Ø{die.die_diameter_mm}x{die.total_package_length_mm} ({die.die_type_ref?.name ?? 'N/A'})
                   </span>
                 </div>
-                {die.profile_no ? (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Profil No:</span>
-                    <span className="font-medium text-gray-900">{die.profile_no}</span>
-                  </div>
-                ) : null}
                 {die.press_code ? (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Pres Kodu:</span>

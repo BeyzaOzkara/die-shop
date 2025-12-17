@@ -60,8 +60,6 @@ function App() {
     { id: 'production-orders' as Page, name: 'Üretim Emirleri', icon: ClipboardList },
     { id: 'work-orders' as Page, name: 'İş Emirleri', icon: Settings },
     { id: 'work-centers' as Page, name: 'Çalışma Merkezleri', icon: Factory },
-    { id: 'stock' as Page, name: 'Stok Yönetimi', icon: Database },
-    { id: 'operators' as Page, name: 'Operatörler', icon: UserCircle },
   ];
 
   const masterDataNavigation = [
@@ -69,6 +67,8 @@ function App() {
     { id: 'component-types' as Page, name: 'Bileşen Tipi Tanımı', icon: Boxes },
     { id: 'die-type-components' as Page, name: 'Kalıp-Bileşen Eşlemesi', icon: Link2 },
     { id: 'component-bom' as Page, name: 'Bileşen BOM Yönetimi', icon: List },
+    { id: 'operators' as Page, name: 'Operatörler', icon: UserCircle },
+    { id: 'stock' as Page, name: 'Stok Yönetimi', icon: Database },
   ];
 
   const renderPage = () => {
