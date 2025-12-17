@@ -281,6 +281,59 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="bg-white rounded-lg p-3">
+                          <p className="text-sm text-gray-600">Kalıp</p>
+                          <p className="font-semibold text-gray-900">
+                            {
+                              activeOperation.work_order?.production_order?.die
+                                ?.die_number
+                            }
+                          </p>
+                        </div>
+                        <div className="bg-white rounded-lg p-3">
+                          <p className="text-sm text-gray-600">Bileşen</p>
+                          <p className="font-semibold text-gray-900">
+                            {
+                              activeOperation.work_order?.die_component
+                                ?.component_type?.name
+                            }
+                          </p>
+                        </div>
+
+                        <div className="bg-white rounded-lg p-3">
+                          <p className="text-sm text-gray-600">Kalıp Çapı</p>
+                          <p className="font-semibold text-gray-900">
+                            {activeOperation.work_order?.production_order?.die?.die_diameter_mm ?? '—'} mm
+                          </p>
+                        </div>
+
+                        <div className="bg-white rounded-lg p-3">
+                          <p className="text-sm text-gray-600">Toplam Paket Boyu</p>
+                          <p className="font-semibold text-gray-900">
+                            {activeOperation.work_order?.production_order?.die?.total_package_length_mm ?? '—'} mm
+                          </p>
+                        </div>
+                        {activeOperation.estimated_duration_minutes && (
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-sm text-gray-600">Tahmini Süre</p>
+                            <p className="font-semibold text-gray-900">
+                              {activeOperation.estimated_duration_minutes} dakika
+                            </p>
+                          </div>
+                        )}
+                        {activeOperation.started_at && (
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-sm text-gray-600">Başlangıç</p>
+                            <p className="font-semibold text-gray-900">
+                              {new Date(
+                                activeOperation.started_at
+                              ).toLocaleTimeString('tr-TR')}
+                            </p>
+                          </div>
+                        )}
+
+                        
                       {(activeOperation.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
                         <div className="mt-4 bg-white rounded-lg p-3">
                           <p className="text-sm text-gray-600 mb-2">Kalıp Dosyaları</p>
@@ -310,44 +363,6 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                           </div>
                         </div>
                       )}
-
-                      <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div className="bg-white rounded-lg p-3">
-                          <p className="text-sm text-gray-600">Kalıp</p>
-                          <p className="font-semibold text-gray-900">
-                            {
-                              activeOperation.work_order?.production_order?.die
-                                ?.die_number
-                            }
-                          </p>
-                        </div>
-                        <div className="bg-white rounded-lg p-3">
-                          <p className="text-sm text-gray-600">Bileşen</p>
-                          <p className="font-semibold text-gray-900">
-                            {
-                              activeOperation.work_order?.die_component
-                                ?.component_type?.name
-                            }
-                          </p>
-                        </div>
-                        {activeOperation.estimated_duration_minutes && (
-                          <div className="bg-white rounded-lg p-3">
-                            <p className="text-sm text-gray-600">Tahmini Süre</p>
-                            <p className="font-semibold text-gray-900">
-                              {activeOperation.estimated_duration_minutes} dakika
-                            </p>
-                          </div>
-                        )}
-                        {activeOperation.started_at && (
-                          <div className="bg-white rounded-lg p-3">
-                            <p className="text-sm text-gray-600">Başlangıç</p>
-                            <p className="font-semibold text-gray-900">
-                              {new Date(
-                                activeOperation.started_at
-                              ).toLocaleTimeString('tr-TR')}
-                            </p>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -420,38 +435,6 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                           {getStatusText(operation.status)}
                         </span>
                       </div>
-
-                      {(operation.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-gray-600 mb-2">Kalıp Dosyaları</p>
-
-                          <div className="space-y-1 text-sm">
-                            {(operation.work_order?.production_order?.die?.files ?? []).map((f) => {
-                                const fileUrl = mediaUrl(f.storage_path);
-                                const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
-          
-                                const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
-          
-                                return (
-                                  <a
-                                    key={f.id}
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                                    title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                    {f.original_name}
-                                    {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
-                                  </a>
-                                ); }
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-
                       <div className="space-y-2 mb-4 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Kalıp:</span>
@@ -459,24 +442,64 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                             {
                               operation.work_order?.production_order?.die
                                 ?.die_number
-                            }
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Bileşen:</span>
-                          <span className="font-medium text-gray-900">
-                            {
+                            } - {
                               operation.work_order?.die_component?.component_type
                                 ?.name
                             }
                           </span>
                         </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Kalıp Çapı:</span>
+                          <span className="font-medium text-gray-900">
+                            {operation.work_order?.production_order?.die?.die_diameter_mm ?? '—'} mm
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Toplam Paket Boyu:</span>
+                          <span className="font-medium text-gray-900">
+                            {operation.work_order?.production_order?.die?.total_package_length_mm ?? '—'} mm
+                          </span>
+                        </div>
+
                         {operation.estimated_duration_minutes && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Tahmini Süre:</span>
                             <span className="font-medium text-gray-900">
                               {operation.estimated_duration_minutes} dk
                             </span>
+                          </div>
+                        )}
+
+                        
+                        {(operation.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <p className="text-xs text-gray-600 mb-2">Kalıp Dosyaları</p>
+
+                            <div className="space-y-1 text-sm">
+                              {(operation.work_order?.production_order?.die?.files ?? []).map((f) => {
+                                  const fileUrl = mediaUrl(f.storage_path);
+                                  const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
+            
+                                  const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
+            
+                                  return (
+                                    <a
+                                      key={f.id}
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                      title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      {f.original_name}
+                                      {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
+                                    </a>
+                                  ); }
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

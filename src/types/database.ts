@@ -136,6 +136,11 @@ export interface Die {
   created_at: string;
   updated_at: string;
 
+  profile_no?: string | null;
+  figure_count?: number | null;
+  customer_name?: string | null;
+  press_code?: string | null;
+
   // Supabase'te de benzer mantık vardı; backend FastAPI bunu die_type_ref olarak döndürüyor.
   die_type_ref?: DieTypeRef;
   files?: FileItem[];

@@ -21,6 +21,11 @@ interface DieFormProps {
     dieTypeId: string;
     designFiles: File[];              // ✅ çoklu + opsiyonel (boş array olabilir)
     components: SelectedComponent[];
+
+    profileNo?: string;
+    figureCount?: number | null;
+    customerName?: string;
+    pressCode?: string;
   }) => void;
   onCancel: () => void;
 }
@@ -30,6 +35,11 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
   const [dieDiameterMm, setDieDiameterMm] = useState('');
   const [totalPackageLengthMm, setTotalPackageLengthMm] = useState('');
   const [dieTypeId, setDieTypeId] = useState('');
+
+  const [profileNo, setProfileNo] = useState('');
+  const [figureCount, setFigureCount] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [pressCode, setPressCode] = useState('');
 
   const [designFiles, setDesignFiles] = useState<File[]>([]);
 
@@ -136,8 +146,12 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
       dieDiameterMm: Number(dieDiameterMm),
       totalPackageLengthMm: Number(totalPackageLengthMm),
       dieTypeId,
-      designFiles, // ✅ boş array olabilir
+      designFiles, // boş array olabilir
       components: selectedComponents,
+      profileNo,
+      figureCount: figureCount ? Number(figureCount) : null,
+      customerName,
+      pressCode,
     });
   };
 
@@ -146,6 +160,10 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
     dieDiameterMm &&
     totalPackageLengthMm &&
     dieTypeId &&
+    profileNo &&
+    figureCount &&
+    customerName &&
+    pressCode &&
     selectedComponents.length > 0 &&
     selectedComponents.every(
       (c) => c.componentTypeId && c.stockItemId && c.packageLengthMm > 0
@@ -178,6 +196,36 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               onChange={(e) => setDieNumber(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Profil No *</label>
+            <input
+              type="text"
+              value={profileNo}
+              onChange={(e) => setProfileNo(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pres Kodu *</label>
+            <input
+              type="text"
+              value={pressCode}
+              onChange={(e) => setPressCode(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Müşteri Adı *</label>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
@@ -226,6 +274,18 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               required
               min="0"
               step="0.01"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Figür Sayısı *</label>
+            <input
+              type="number"
+              value={figureCount}
+              onChange={(e) => setFigureCount(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              min="0"
+              step="1"
             />
           </div>
 

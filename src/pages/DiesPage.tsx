@@ -54,6 +54,11 @@ export function DiesPage() {
         totalPackageLengthMm: Number(formData.totalPackageLengthMm),
         dieTypeId: Number(formData.dieTypeId),
         designFiles: formData.designFiles ?? [],
+
+        profileNo: formData.profileNo,
+        figureCount: formData.figureCount ?? null,
+        customerName: formData.customerName,
+        pressCode: formData.pressCode,
       });
 
       for (const component of formData.components) {
@@ -176,7 +181,8 @@ export function DiesPage() {
                     {die.die_number}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {die.die_type_ref?.name ?? 'N/A'}
+                    {/* {die.die_type_ref?.name ?? 'N/A'} */}
+                    {die.customer_name ?? 'N/A'}
                   </p>
                 </div>
                 <span
@@ -190,17 +196,27 @@ export function DiesPage() {
 
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Çap:</span>
+                  <span className="text-gray-600">Kalıp Ebatı:</span>
                   <span className="font-medium text-gray-900">
-                    {die.die_diameter_mm} mm
+                    Ø{die.die_diameter_mm}x{die.total_package_length_mm} ({die.die_type_ref?.name ?? 'N/A'})
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Paket Uzunluğu:</span>
-                  <span className="font-medium text-gray-900">
-                    {die.total_package_length_mm} mm
-                  </span>
-                </div>
+                {die.profile_no ? (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Profil No:</span>
+                    <span className="font-medium text-gray-900">{die.profile_no}</span>
+                  </div>
+                ) : null}
+                {die.press_code ? (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Pres Kodu:</span>
+                    <span className="font-medium text-gray-900">{die.press_code} (
+                      {die.figure_count ? (
+                          <span className="font-medium text-gray-900">{die.figure_count} Figür</span>
+                      ) : null})
+                    </span>
+                  </div>
+                ) : null}
                 {die?.files?.length ? (
                   <div className="text-sm space-y-1">
                     {die.files.map((f) => {

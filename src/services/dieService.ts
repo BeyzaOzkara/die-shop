@@ -50,6 +50,11 @@ export async function createDie(params: {
   totalPackageLengthMm: number;
   dieTypeId: number;
   designFiles: File[];
+
+  profileNo?: string;
+  figureCount?: number | null;
+  customerName?: string;
+  pressCode?: string;
 }): Promise<Die> {
   const fd = new FormData();
 
@@ -62,6 +67,10 @@ export async function createDie(params: {
       total_package_length_mm: params.totalPackageLengthMm,
       die_type_id: params.dieTypeId,
       // profile_no, figure_count, customer_name, press_code ...
+      profile_no: params.profileNo ?? null,
+      figure_count: params.figureCount ?? null,
+      customer_name: params.customerName ?? null,
+      press_code: params.pressCode ?? null,
     })
   );
 
