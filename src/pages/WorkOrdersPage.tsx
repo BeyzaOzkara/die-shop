@@ -10,7 +10,7 @@ import { getAvailableLots } from '../services/stockService';
 import type { WorkOrder, WorkOrderOperation, Lot } from '../types/database';
 import { mediaUrl } from "../lib/media";
 
-const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "http://arslan:8082";
+const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "/dxf-viewer";//"http://arslan:8082";
 
 const dxfViewerUrl = (fileUrl: string) => {
   return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
@@ -257,7 +257,7 @@ const getStatusText = (status: UiStatus) => {
                         const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
                         const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
                         const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
-                        
+
                         return (
                           <a
                             key={f.id}

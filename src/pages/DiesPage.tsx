@@ -10,8 +10,7 @@ import {
 import type { Die } from '../types/database';
 import { mediaUrl } from "../lib/media";
 
-const VIEWER_BASE =
-  import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "http://arslan:8082";
+const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "/dxf-viewer";//"http://arslan:8082";
 
 // const BASE =
 //   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';

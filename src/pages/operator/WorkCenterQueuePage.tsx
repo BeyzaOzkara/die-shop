@@ -25,7 +25,7 @@ interface WorkCenterQueuePageProps {
   onLogout: () => void;
 }
 
-const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "http://arslan:8082";
+const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "/dxf-viewer";//"http://arslan:8082";
 
 const dxfViewerUrl = (fileUrl: string) => {
   return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
