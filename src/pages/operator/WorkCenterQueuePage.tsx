@@ -341,10 +341,10 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                           <div className="space-y-1 text-sm">
                             {(activeOperation.work_order?.production_order?.die?.files ?? []).map((f) => {
                                 const fileUrl = mediaUrl(f.storage_path);
+                                const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
                                 const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
-          
-                                const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
-          
+                                const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
+
                                 return (
                                   <a
                                     key={f.id}
@@ -480,9 +480,9 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                             <div className="space-y-1 text-sm">
                               {(operation.work_order?.production_order?.die?.files ?? []).map((f) => {
                                   const fileUrl = mediaUrl(f.storage_path);
+                                  const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
                                   const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
-            
-                                  const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
+                                  const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
             
                                   return (
                                     <a

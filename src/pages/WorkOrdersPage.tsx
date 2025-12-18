@@ -254,10 +254,10 @@ const getStatusText = (status: UiStatus) => {
                     <div className="text-sm space-y-1">
                       {selectedWorkOrder.production_order.die.files.map((f) => {
                         const fileUrl = mediaUrl(f.storage_path);
+                        const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
                         const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
-  
-                        const href = isDxf ? dxfViewerUrl(fileUrl) : fileUrl;
-  
+                        const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
+                        
                         return (
                           <a
                             key={f.id}
