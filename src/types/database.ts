@@ -62,6 +62,18 @@ export interface DieTypeComponent {
 }
 
 // ===========================
+// OPERATION TYPE (NEW)
+// ===========================
+export interface OperationType {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+// ===========================
 // COMPONENT BOM
 // ===========================
 
@@ -69,12 +81,15 @@ export interface ComponentBOM {
   id: number;
   component_type_id: number;
   sequence_number: number;
-  operation_name: string;
-  work_center_id: number;
+  operation_type_id: number;
+  preferred_work_center_id?: number | null;
+  operation_type?: OperationType;
+  preferred_work_center?: WorkCenter;
+
   estimated_duration_minutes?: number | null;
   notes?: string | null;
   created_at: string;
-  work_center?: WorkCenter;
+  // work_center?: WorkCenter;
   // backend'de component_type nested'i de var ama şu an frontend kullanmıyor
 }
 
@@ -136,10 +151,10 @@ export interface Die {
   created_at: string;
   updated_at: string;
 
-  profile_no?: string | null;
-  figure_count?: number | null;
-  customer_name?: string | null;
-  press_code?: string | null;
+  profile_no: string;
+  figure_count: number;
+  customer_name: string;
+  press_code: string;
 
   // Supabase'te de benzer mantık vardı; backend FastAPI bunu die_type_ref olarak döndürüyor.
   die_type_ref?: DieTypeRef;
@@ -205,9 +220,13 @@ export interface WorkOrderOperation {
   id: number;
   work_order_id: number;
   sequence_number: number;
-  operation_name: string;
-  work_center_id: number;
+
+  operation_type_id: number;
+  work_center_id: number | null; // bundan emin değilim
+
+  preferred_work_center_id?: number | null;
   operator_name?: string | null;
+
   status: OperationStatus;
   estimated_duration_minutes?: number | null;
   started_at?: string | null;
@@ -215,6 +234,7 @@ export interface WorkOrderOperation {
   notes?: string | null;
   created_at: string;
   work_center?: WorkCenter;
+  operation_type?: OperationType; 
   work_order?: WorkOrder;
 }
 

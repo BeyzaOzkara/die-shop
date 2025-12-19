@@ -8,12 +8,15 @@ import {
   deleteBOMOperation,
 } from '../services/componentService'; // 🔹 componentService -> componentServices
 import { getWorkCenters } from '../services/workCenterService';
-import type { ComponentType, ComponentBOM, WorkCenter } from '../types/database';
+import { getOperationTypes } from '../services/operationTypeService';
+import type { ComponentType, ComponentBOM, WorkCenter, OperationType } from '../types/database';
 
 export function ComponentBOMPage() {
   const [componentTypes, setComponentTypes] = useState<ComponentType[]>([]);
   const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
+  const [operationTypes, setOperationTypes] = useState<OperationType[]>([]);
   const [selectedComponent, setSelectedComponent] = useState<ComponentType | null>(null);
+
   const [operations, setOperations] = useState<ComponentBOM[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -21,8 +24,8 @@ export function ComponentBOMPage() {
 
   const [formData, setFormData] = useState({
     sequence_number: '',
-    operation_name: '',
-    work_center_id: '',
+    operation_type_id: '',
+    preferred_work_center_id: '', // optional
     estimated_duration_minutes: '',
     notes: '',
   });
@@ -41,12 +44,14 @@ export function ComponentBOMPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [componentsData, centersData] = await Promise.all([
+      const [componentsData, centersData, opTypesData] = await Promise.all([
         getActiveComponentTypes(),
         getWorkCenters(),
+        getOperationTypes(),
       ]);
       setComponentTypes(componentsData);
       setWorkCenters(centersData);
+      setOperationTypes(opTypesData);
       if (componentsData.length > 0) {
         setSelectedComponent(componentsData[0]);
       }
@@ -79,8 +84,12 @@ export function ComponentBOMPage() {
       const payload = {
         component_type_id: selectedComponent.id, // number
         sequence_number: Number(formData.sequence_number),
-        operation_name: formData.operation_name,
-        work_center_id: Number(formData.work_center_id), // string → number
+
+        operation_type_id: Number(formData.operation_type_id),
+        preferred_work_center_id: formData.preferred_work_center_id
+          ? Number(formData.preferred_work_center_id)
+          : null,
+
         estimated_duration_minutes: formData.estimated_duration_minutes
           ? Number(formData.estimated_duration_minutes)
           : undefined,
@@ -104,8 +113,12 @@ export function ComponentBOMPage() {
     setEditingId(operation.id); // id number
     setFormData({
       sequence_number: operation.sequence_number.toString(),
-      operation_name: operation.operation_name,
-      work_center_id: String(operation.work_center_id), // number → string
+
+      operation_type_id: String(operation.operation_type_id),
+      preferred_work_center_id: operation.preferred_work_center_id
+        ? String(operation.preferred_work_center_id)
+        : '',
+
       estimated_duration_minutes:
         operation.estimated_duration_minutes?.toString() || '',
       notes: operation.notes || '',
@@ -128,8 +141,8 @@ export function ComponentBOMPage() {
   const resetForm = () => {
     setFormData({
       sequence_number: '',
-      operation_name: '',
-      work_center_id: '',
+      operation_type_id: '',
+      preferred_work_center_id: '',
       estimated_duration_minutes: '',
       notes: '',
     });
@@ -238,37 +251,40 @@ export function ComponentBOMPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Operasyon Adı *
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.operation_name}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                operation_name: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Varsayılan Çalışma Merkezi *
+                            Operasyon Tipi *
                           </label>
                           <select
-                            value={formData.work_center_id}
+                            value={formData.operation_type_id}
                             onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                work_center_id: e.target.value,
-                              })
+                              setFormData({ ...formData, operation_type_id: e.target.value })
                             }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required
                           >
                             <option value="">Seçiniz</option>
+                            {operationTypes.map((ot) => (
+                              <option key={ot.id} value={String(ot.id)}>
+                                {ot.name} ({ot.code})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Önerilen Çalışma Merkezi (Opsiyonel)
+                          </label>
+                          <select
+                            value={formData.preferred_work_center_id}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                preferred_work_center_id: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="">(Boş bırakılabilir)</option>
                             {workCenters.map((wc) => (
                               <option key={wc.id} value={String(wc.id)}>
                                 {wc.name}
@@ -276,6 +292,7 @@ export function ComponentBOMPage() {
                             ))}
                           </select>
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Tahmini Süre (dakika)
@@ -293,6 +310,7 @@ export function ComponentBOMPage() {
                             min="0"
                           />
                         </div>
+
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Notlar
@@ -310,6 +328,7 @@ export function ComponentBOMPage() {
                           />
                         </div>
                       </div>
+                      
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -348,14 +367,17 @@ export function ComponentBOMPage() {
                               </span>
                               <div>
                                 <div className="font-medium text-gray-900">
-                                  {op.operation_name}
+                                  {op.operation_type?.name ?? `OperationType#${op.operation_type_id}`}
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                  {op.work_center?.name}
+                                  {op.preferred_work_center?.name
+                                    ? `Önerilen: ${op.preferred_work_center.name}`
+                                    : 'Önerilen çalışma merkezi yok'}
                                 </div>
                               </div>
                             </div>
-                            {op.estimated_duration_minutes && (
+
+                            {op.estimated_duration_minutes !== null && op.estimated_duration_minutes !== undefined && (
                               <div className="text-sm text-gray-500 ml-11">
                                 Tahmini Süre: {op.estimated_duration_minutes} dakika
                               </div>

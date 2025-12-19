@@ -146,7 +146,12 @@ export function WorkCentersPage() {
     return texts[status] ?? status;
   };
 
-  const activeOperations = operations.filter((op) => op.status !== 'Completed');
+  // const activeOperations = operations.filter((op) => op.status !== 'Completed');
+  const activeOperations = operations.filter(
+    (op) => op.status === 'Waiting' || op.status === 'InProgress'
+  );
+  const pausedOperations = operations.filter((op) => op.status === 'Paused');
+  const cancelledOperations = operations.filter((op) => op.status === 'Cancelled');
   const completedOperations = operations.filter((op) => op.status === 'Completed');
 
   if (loading) {
@@ -449,7 +454,7 @@ export function WorkCentersPage() {
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <h4 className="font-medium text-gray-900">
-                                {op.operation_name}
+                                {op.operation_type?.name ?? `Operation#${op.id}`}
                               </h4>
                               <p className="text-sm text-gray-600">
                                 İş Emri: {op.work_order?.order_number}
@@ -482,6 +487,74 @@ export function WorkCentersPage() {
                     </div>
                   )}
 
+                  {pausedOperations.length > 0 && (
+                    <>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                        Duraklatılan Operasyonlar ({pausedOperations.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {pausedOperations.slice(0, 5).map((op) => (
+                          <div
+                            key={op.id}
+                            className="border border-gray-100 rounded-lg p-3 bg-gray-50"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-700">
+                                  {op.operation_type?.name ?? `Operation#${op.id}`}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {op.work_order?.order_number}
+                                </p>
+                              </div>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${getOperationStatusColor(
+                                  op.status
+                                )}`}
+                              >
+                                {getOperationStatusText(op.status)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {cancelledOperations.length > 0 && (
+                    <>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                        İptal Edilen Operasyonlar ({cancelledOperations.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {cancelledOperations.slice(0, 5).map((op) => (
+                          <div
+                            key={op.id}
+                            className="border border-gray-100 rounded-lg p-3 bg-gray-50"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-700">
+                                  {op.operation_type?.name ?? `Operation#${op.id}`}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {op.work_order?.order_number}
+                                </p>
+                              </div>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${getOperationStatusColor(
+                                  op.status
+                                )}`}
+                              >
+                                {getOperationStatusText(op.status)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
                   {completedOperations.length > 0 && (
                     <>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">
@@ -496,7 +569,7 @@ export function WorkCentersPage() {
                             <div className="flex items-center justify-between">
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-gray-700">
-                                  {op.operation_name}
+                                  {op.operation_type?.name ?? `Operation#${op.id}`}
                                 </p>
                                 <p className="text-xs text-gray-500">
                                   {op.work_order?.order_number}

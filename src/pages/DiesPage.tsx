@@ -12,14 +12,6 @@ import { mediaUrl } from "../lib/media";
 
 const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "/dxf-viewer";//"http://arslan:8082";
 
-// const BASE =
-//   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
-
-// const mediaUrl = (storagePath: string) => {
-//   const normalized = storagePath.replace(/\\/g, "/");
-//   return `${BASE}/media/${normalized}`;
-// };
-
 const dxfViewerUrl = (fileUrl: string) => {
   return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
 };
@@ -94,7 +86,7 @@ export function DiesPage() {
   const getStatusColor = (status: Die['status']) => {
     const colors: Record<Die['status'], string> = {
       Draft: 'bg-gray-100 text-gray-800',
-      Waiting: 'bg-blue-100 text-yellow-800',
+      Waiting: 'bg-yellow-100 text-yellow-800',
       Ready: 'bg-blue-100 text-blue-800',
       'InProduction': 'bg-yellow-100 text-yellow-800',
       Completed: 'bg-green-100 text-green-800',

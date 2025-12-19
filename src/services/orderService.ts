@@ -105,18 +105,7 @@ export async function updateOperationStatus(
     `/work-order-operations/${Number(id)}`,
     updates
   );
-  // if (status === 'InProgress') {
-  //   updates.started_at = new Date().toISOString();
-  //   if (operatorName) updates.operator_name = operatorName;
-  // } else if (status === 'Completed') {
-  //   updates.completed_at = new Date().toISOString();
-  // }
-  // // FastAPI:
-  // // PATCH /work-order-operations/{id}
-  // return api.patch<WorkOrderOperation>(
-  //   `/work-order-operations/${Number(id)}`,
-  //   updates
-  // );
+
 }
 
 export async function updateWorkOrderStatus(
@@ -170,7 +159,7 @@ export async function completeWorkOrder(
 // Production Order Status
 // =======================
 
-export async function updateProductionOrderStatus( // hata veriyor
+export async function updateProductionOrderStatus(
   id: string,
   status: ProductionOrder['status']
 ): Promise<ProductionOrder> {

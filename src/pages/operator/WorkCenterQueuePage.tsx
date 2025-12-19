@@ -54,6 +54,16 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
     }
   }, [operator]);
 
+  useEffect(() => {
+    const firstId = operator.work_centers?.[0]?.id ?? null;
+
+    setCurrentWorkCenterId((prev) => {
+      // kullanıcı zaten seçim yaptıysa bozma
+      if (prev != null) return prev;
+      return firstId;
+    });
+  }, [operator.id]); // veya [operator.id, operator.work_centers?.length]
+
   // Seçili work center değişince operasyonları yükle + interval
   useEffect(() => {
     if (currentWorkCenterId == null) {
@@ -62,7 +72,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
       return;
     }
 
-    const load = () => loadOperations(currentWorkCenterId);
+    const load = () => loadOperations(currentWorkCenterId, true);
 
     load();
     const interval = setInterval(load, 30000);
@@ -70,10 +80,11 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
     return () => clearInterval(interval);
   }, [currentWorkCenterId]);
 
-  const loadOperations = async (workCenterId: number) => {
+  const loadOperations = async (workCenterId: number, silent = false) => {
     try {
       setError('');
-      setLoading(true);
+      // setLoading(true);
+      if (!silent) setLoading(true);
       const data = await getWorkCenterOperations(workCenterId);
       setOperations(data);
     } catch (err: any) {
@@ -273,7 +284,8 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                         </span>
                         <div>
                           <h3 className="text-2xl font-bold text-gray-900">
-                            {activeOperation.operation_name}
+                            {/* {activeOperation.operation_name} */}
+                            {activeOperation.operation_type?.name}
                           </h3>
                           <p className="text-gray-600">
                             İş Emri: {activeOperation.work_order?.order_number}
@@ -420,7 +432,8 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                           </span>
                           <div>
                             <h3 className="text-lg font-semibold text-gray-900">
-                              {operation.operation_name}
+                              {/* {operation.operation_name} */}
+                              {operation.operation_type?.name}
                             </h3>
                             <p className="text-sm text-gray-600">
                               {operation.work_order?.order_number}

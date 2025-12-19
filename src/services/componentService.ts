@@ -1,8 +1,11 @@
 import { api } from '../lib/api';
 import type { ComponentBOM } from '../types/database';
 
-// Payload tipi: id, created_at ve nested work_center'ı backend'e GÖNDERMİYORUZ
-type ComponentBOMPayload = Omit<ComponentBOM, 'id' | 'created_at' | 'work_center'>;
+// Backend'e göndereceğimiz payload (id/created_at ve nested'ler gitmez)
+type ComponentBOMPayload = Omit<
+  ComponentBOM,
+  'id' | 'created_at' | 'operation_type' | 'preferred_work_center'
+>;
 
 export async function getComponentBOM(componentTypeId: number): Promise<ComponentBOM[]> {
   return api.get<ComponentBOM[]>('/component-bom', {
@@ -10,9 +13,7 @@ export async function getComponentBOM(componentTypeId: number): Promise<Componen
   });
 }
 
-export async function createBOMOperation(
-  operation: ComponentBOMPayload
-): Promise<ComponentBOM> {
+export async function createBOMOperation(operation: ComponentBOMPayload): Promise<ComponentBOM> {
   return api.post<ComponentBOM>('/component-bom', operation);
 }
 

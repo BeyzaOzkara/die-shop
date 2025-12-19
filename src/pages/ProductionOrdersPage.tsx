@@ -22,6 +22,7 @@ export function ProductionOrdersPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [dieTypes, setDieTypes] = useState<DieType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusBusy, setStatusBusy] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -29,7 +30,10 @@ export function ProductionOrdersPage() {
 
   useEffect(() => {
     if (selectedOrder) {
+      setWorkOrders([]); // önce temizle
       loadWorkOrders(selectedOrder.id); // id: number
+    } else {
+      setWorkOrders([]);
     }
   }, [selectedOrder]);
 
@@ -62,10 +66,13 @@ export function ProductionOrdersPage() {
     order: ProductionOrder,
     newStatus: ProductionOrder['status']
   ) => {
+    if (statusBusy) return;
+    setStatusBusy(true);
     try {
       await updateProductionOrderStatus(String(order.id), newStatus);
       if (newStatus === 'InProgress') { // üretim emrine onay verildiğinde iş emirlerini oluştur
         await createWorkOrders(order.id);//, order.die_id);
+        await loadWorkOrders(order.id);
       }
 
       await loadOrders();

@@ -1,7 +1,6 @@
 import { api } from '../lib/api';
-import { calculateTheoreticalConsumption, generateOrderNumber, generateProductionOrderNumber, generateWorkOrderNumber } from '../lib/calculations';
-import type { Die, DieComponent, ProductionOrder, WorkOrder } from '../types/database';
-import { getComponentBOM } from './componentService';
+import { calculateTheoreticalConsumption } from '../lib/calculations';
+import type { Die, DieComponent, ProductionOrder } from '../types/database';
 
 // =======================
 // Dies
@@ -29,20 +28,6 @@ export async function getDieComponents(dieId: number): Promise<DieComponent[]> {
   return api.get<DieComponent[]>(`/dies/${dieId}/components`);
 }
 
-// export async function createDie(
-//   die: Omit<Die, 'id' | 'created_at' | 'updated_at'>
-// ): Promise<Die> {
-//   // POST /dies (status'i backend Draft olarak set ediyor)
-//   const payload = {
-//     die_number: die.die_number,
-//     die_diameter_mm: die.die_diameter_mm,
-//     total_package_length_mm: die.total_package_length_mm,
-//     die_type_id: die.die_type_id,     // number
-//     design_file_url: die.design_file_url,
-//   };
-
-//   return api.post<Die>('/dies', payload);
-// }
 
 export async function createDie(params: {
   dieNumber: string;
