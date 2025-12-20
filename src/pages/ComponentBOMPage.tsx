@@ -25,6 +25,7 @@ export function ComponentBOMPage() {
   const [formData, setFormData] = useState({
     sequence_number: '',
     operation_type_id: '',
+    operation_name: '',  
     preferred_work_center_id: '', // optional
     estimated_duration_minutes: '',
     notes: '',
@@ -86,6 +87,7 @@ export function ComponentBOMPage() {
         sequence_number: Number(formData.sequence_number),
 
         operation_type_id: Number(formData.operation_type_id),
+        operation_name: formData.operation_name.trim(),   
         preferred_work_center_id: formData.preferred_work_center_id
           ? Number(formData.preferred_work_center_id)
           : null,
@@ -113,7 +115,7 @@ export function ComponentBOMPage() {
     setEditingId(operation.id); // id number
     setFormData({
       sequence_number: operation.sequence_number.toString(),
-
+      operation_name: operation.operation_name.trim(),   
       operation_type_id: String(operation.operation_type_id),
       preferred_work_center_id: operation.preferred_work_center_id
         ? String(operation.preferred_work_center_id)
@@ -142,6 +144,7 @@ export function ComponentBOMPage() {
     setFormData({
       sequence_number: '',
       operation_type_id: '',
+      operation_name: '',
       preferred_work_center_id: '',
       estimated_duration_minutes: '',
       notes: '',
@@ -227,13 +230,23 @@ export function ComponentBOMPage() {
                       onSubmit={handleSubmit}
                       className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200"
                     >
-                      <h4 className="font-medium text-gray-900 mb-3">
-                        {editingId ? 'Operasyon Düzenle' : 'Yeni Operasyon'}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                        <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-900">
+                          {editingId ? "Operasyon Düzenle" : "Yeni Operasyon"}
+                        </h4>
+
+                        {/* küçük ipucu (isteğe bağlı) */}
+                        <span className="text-xs text-gray-500">
+                          * zorunlu alanlar
+                        </span>
+                      </div>
+
+                      {/* ====== FORM GRID ====== */}
+                      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
+                        {/* 1) Operasyon Sırası (kısa) */}
+                        <div className="md:col-span-1">
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Operasyon Sırası *
+                            Sıra *
                           </label>
                           <input
                             type="number"
@@ -244,12 +257,31 @@ export function ComponentBOMPage() {
                                 sequence_number: e.target.value,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full max-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required
                             min="1"
+                            inputMode="numeric"
                           />
                         </div>
-                        <div>
+
+                        {/* 2) Operasyon Adı (geniş) */}
+                        <div className="md:col-span-3">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Operasyon Adı *
+                          </label>
+                          <input
+                            value={formData.operation_name}
+                            onChange={(e) =>
+                              setFormData({ ...formData, operation_name: e.target.value })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Örn: Bakır Markalama"
+                            required
+                          />
+                        </div>
+
+                        {/* 3) Operasyon Tipi (aynı satır) */}
+                        <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Operasyon Tipi *
                           </label>
@@ -270,9 +302,10 @@ export function ComponentBOMPage() {
                           </select>
                         </div>
 
-                        <div>
+                        {/* 4) Çalışma Merkezi */}
+                        <div className="md:col-span-4">
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Önerilen Çalışma Merkezi (Opsiyonel)
+                            Önerilen Çalışma Merkezi <span className="text-gray-400">(Opsiyonel)</span>
                           </label>
                           <select
                             value={formData.preferred_work_center_id}
@@ -293,9 +326,10 @@ export function ComponentBOMPage() {
                           </select>
                         </div>
 
-                        <div>
+                        {/* 5) Süre */}
+                        <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Tahmini Süre (dakika)
+                            Tahmini Süre <span className="text-gray-400">(dk)</span>
                           </label>
                           <input
                             type="number"
@@ -308,12 +342,15 @@ export function ComponentBOMPage() {
                             }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             min="0"
+                            inputMode="numeric"
+                            placeholder="Örn: 25"
                           />
                         </div>
 
-                        <div className="md:col-span-2">
+                        {/* 6) Notlar */}
+                        <div className="md:col-span-6">
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Notlar
+                            Notlar <span className="text-gray-400">(Opsiyonel)</span>
                           </label>
                           <textarea
                             value={formData.notes}
@@ -325,25 +362,28 @@ export function ComponentBOMPage() {
                             }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             rows={2}
+                            placeholder="Kısa not..."
                           />
                         </div>
                       </div>
-                      
+
+                      {/* ====== ACTIONS ====== */}
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={resetForm}
-                          className="flex items-center gap-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                          className="flex items-center gap-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           <X className="w-4 h-4" />
                           İptal
                         </button>
+
                         <button
                           type="submit"
                           className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                           <Save className="w-4 h-4" />
-                          {editingId ? 'Güncelle' : 'Ekle'}
+                          {editingId ? "Güncelle" : "Ekle"}
                         </button>
                       </div>
                     </form>
@@ -367,7 +407,10 @@ export function ComponentBOMPage() {
                               </span>
                               <div>
                                 <div className="font-medium text-gray-900">
-                                  {op.operation_type?.name ?? `OperationType#${op.operation_type_id}`}
+                                  {op.operation_name}
+                                </div>
+                                <div className="font-medium text-gray-900">
+                                  Tip: {op.operation_type?.name ?? `OperationType#${op.operation_type_id}`}
                                 </div>
                                 <div className="text-sm text-gray-600">
                                   {op.preferred_work_center?.name

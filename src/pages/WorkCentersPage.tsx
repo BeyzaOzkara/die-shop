@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Settings, Plus, Activity } from 'lucide-react';
 import { getWorkCenters, createWorkCenter, updateWorkCenter } from '../services/workCenterService';
 import { getOperationsByWorkCenter } from '../services/orderService';
-import type { WorkCenter, WorkOrderOperation, OperationStatus } from '../types/database';
+import { getOperationTypes } from '../services/operationTypeService';
+import type { WorkCenter, WorkOrderOperation, OperationStatus, OperationType } from '../types/database';
 
 export function WorkCentersPage() {
   const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
@@ -10,10 +11,12 @@ export function WorkCentersPage() {
   const [operations, setOperations] = useState<WorkOrderOperation[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [operationTypes, setOperationTypes] = useState<OperationType[]>([]);
+  const [selectedOpTypeIds, setSelectedOpTypeIds] = useState<number[]>([]);
+
 
   const [formData, setFormData] = useState({
     name: '',
-    type: '',
     status: 'Available' as WorkCenter['status'],
     location: '',
     capacity_per_hour: '',
@@ -23,6 +26,7 @@ export function WorkCentersPage() {
 
   useEffect(() => {
     loadWorkCenters();
+    loadOperationTypes();
   }, []);
 
   useEffect(() => {
@@ -30,6 +34,15 @@ export function WorkCentersPage() {
       loadOperations(String(selectedWorkCenter.id));
     }
   }, [selectedWorkCenter]);
+
+  const loadOperationTypes = async () => {
+    try {
+      const data = await getOperationTypes({ only_active: true });
+      setOperationTypes(data);
+    } catch (e) {
+      console.error('Operasyon tipleri yüklenemedi:', e);
+    }
+  };
 
   const loadWorkCenters = async () => {
     try {
@@ -57,7 +70,6 @@ export function WorkCentersPage() {
     try {
       await createWorkCenter({
         name: formData.name,
-        type: formData.type,
         status: formData.status,
         location: formData.location || undefined,
         capacity_per_hour: formData.capacity_per_hour
@@ -69,10 +81,10 @@ export function WorkCentersPage() {
         cost_per_hour: formData.cost_per_hour
           ? Number(formData.cost_per_hour)
           : undefined,
+        operation_type_ids: selectedOpTypeIds,
       });
       setFormData({
         name: '',
-        type: '',
         status: 'Available',
         location: '',
         capacity_per_hour: '',
@@ -81,6 +93,7 @@ export function WorkCentersPage() {
       });
       setShowForm(false);
       loadWorkCenters();
+      setSelectedOpTypeIds([]); //??
     } catch (error) {
       console.error('Çalışma merkezi oluşturulamadı:', error);
       alert('Çalışma merkezi oluşturulurken bir hata oluştu.');
@@ -207,21 +220,51 @@ export function WorkCentersPage() {
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tip *
+            <div className="md:col-span-2 lg:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Operasyon Tipleri *
               </label>
-              <input
-                type="text"
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({ ...formData, type: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Tornalama"
-                required
-              />
+
+              {operationTypes.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  Aktif operasyon tipi yok. Önce Operasyon Tipleri sayfasından ekleyin.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {operationTypes.map((ot) => {
+                    const checked = selectedOpTypeIds.includes(ot.id);
+                    return (
+                      <label
+                        key={ot.id}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer ${
+                          checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            setSelectedOpTypeIds((prev) =>
+                              e.target.checked
+                                ? [...prev, ot.id]
+                                : prev.filter((x) => x !== ot.id)
+                            );
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="font-medium text-gray-900">{ot.name}</span>
+                        <span className="text-xs text-gray-500">({ot.code})</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 mt-1">
+                Bu çalışma merkezinin yapabildiği operasyon tiplerini seçin.
+              </p>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Durum *
@@ -331,7 +374,7 @@ export function WorkCentersPage() {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <h3 className="font-semibold text-gray-900">{wc.name}</h3>
-                    <p className="text-sm text-gray-600">{wc.type}</p>
+                    <p className="text-sm text-gray-600">{(wc.operation_types ?? []).map((x) => x.name).join(', ') || '—'}</p>
                   </div>
                 </div>
                 <span
@@ -355,7 +398,7 @@ export function WorkCentersPage() {
                         {selectedWorkCenter.name}
                       </h2>
                       <p className="text-gray-600 mt-1">
-                        {selectedWorkCenter.type}
+                        {(selectedWorkCenter.operation_types ?? []).map((x) => x.name).join(', ') || '—'}
                       </p>
                     </div>
                     <span

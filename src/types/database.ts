@@ -26,13 +26,14 @@ export interface DieType {
 export interface WorkCenter {
   id: number;
   name: string;
-  type: string;
   status: WorkCenterStatus;
   location?: string | null;
   capacity_per_hour?: number | null;
   setup_time_minutes?: number | null;
   cost_per_hour?: number | null;
   created_at: string;
+  
+  operation_types?: OperationType[];
 }
 
 // ===========================
@@ -82,6 +83,7 @@ export interface ComponentBOM {
   component_type_id: number;
   sequence_number: number;
   operation_type_id: number;
+  operation_name: string;
   preferred_work_center_id?: number | null;
   operation_type?: OperationType;
   preferred_work_center?: WorkCenter;
@@ -222,6 +224,7 @@ export interface WorkOrderOperation {
   sequence_number: number;
 
   operation_type_id: number;
+  operation_name: string; 
   work_center_id: number | null; // bundan emin değilim
 
   preferred_work_center_id?: number | null;

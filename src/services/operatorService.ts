@@ -25,7 +25,7 @@ export async function getOperatorById(id: string | number): Promise<Operator | n
  * GET /operators
  */
 export async function getOperators(): Promise<Operator[]> {
-  return await api.get<Operator[]>('/operators');
+  return await api.get<Operator[]>('/operators/');
 }
 
 /**

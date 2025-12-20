@@ -21,6 +21,7 @@ import { ComponentTypesPage } from './pages/ComponentTypesPage';
 import { DieTypeComponentsPage } from './pages/DieTypeComponentsPage';
 import { ComponentBOMPage } from './pages/ComponentBOMPage';
 import { OperatorsPage } from './pages/OperatorsPage';
+import { OperationTypesPage } from './pages/OperationTypesPage';
 import { OperatorApp } from './pages/operator/OperatorApp';
 
 type Page =
@@ -33,6 +34,7 @@ type Page =
   | 'die-types'
   | 'component-types'
   | 'die-type-components'
+  | 'operation-types'
   | 'component-bom';
 
 function App() {
@@ -69,6 +71,7 @@ function App() {
     { id: 'component-bom' as Page, name: 'Bileşen BOM Yönetimi', icon: List },
     { id: 'operators' as Page, name: 'Operatörler', icon: UserCircle },
     { id: 'stock' as Page, name: 'Stok Yönetimi', icon: Database },
+    { id: 'operation-types' as Page, name: 'Operasyon Tipleri Yönetimi', icon: Factory },
   ];
 
   const renderPage = () => {
@@ -93,6 +96,8 @@ function App() {
         return <DieTypeComponentsPage />;
       case 'component-bom':
         return <ComponentBOMPage />;
+      case 'operation-types':
+        return <OperationTypesPage />;
       default:
         return <DiesPage />;
     }
