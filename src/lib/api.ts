@@ -158,8 +158,19 @@ async function request<T>(
     throw new ApiError(res.status, data);
   }
 
-  if (res.status === 204) return null as T;
-  return res.json() as Promise<T>;
+  // 204 No Content (DELETE gibi)
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
+  // boş body gelebilir (bazı endpointler 200 dönüp body boş dönebilir)
+  const text = await res.text();
+  if (!text) {
+    return undefined as T;
+  }
+  return JSON.parse(text) as T;
+  // if (res.status === 204) return null as T;
+  // return res.json() as Promise<T>;
 }
 
 export const api = {

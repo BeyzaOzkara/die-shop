@@ -60,7 +60,8 @@ export function OperationTypesPage() {
           name: formData.name,
           description: formData.description || undefined,
           is_active: formData.is_active,
-          // code'ı editte kilitli tutacağız
+          code: formData.code.trim().toUpperCase(),
+          // code'ı editte kilitli tutacağız, tutmamaya karar verdim
         });
       } else {
         await createOperationType({
@@ -173,7 +174,7 @@ export function OperationTypesPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
                 placeholder="TORNA"
                 required
-                disabled={editingId != null}
+                // disabled={editingId != null}
               />
               <p className="text-xs text-gray-500 mt-1">Örn: TORNA, FREZE, TASLAMA</p>
             </div>
