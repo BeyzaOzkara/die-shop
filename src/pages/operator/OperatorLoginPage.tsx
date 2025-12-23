@@ -12,19 +12,51 @@ export function OperatorLoginPage({ onLogin }: OperatorLoginPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  // const handleSubmit = async (e?: React.FormEvent) => {
+  //   if (e) e.preventDefault();
+  //   if (!rfidCode) return;
+
+  //   setError('');
+  //   setLoading(true);
+
+  //   try {
+  //     console.log('RFID kodu ile giriş deneniyor:', rfidCode);
+  //     const operator = await loginOperatorByRFID(rfidCode);
+
+  //     if (!operator) {
+  //       setError('RFID kartı bulunamadı veya operatör aktif değil');
+  //       // Biraz bekleyip input’u temizle
+  //       setTimeout(() => setRfidCode(''), 500);
+  //       return;
+  //     }
+
+  //     onLogin(operator);
+  //   } catch (err: any) {
+  //     console.error('Giriş hatası:', err);
+  //     setError('Giriş yapılırken bir hata oluştu');
+  //     setTimeout(() => setRfidCode(''), 500);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // RFID okutulunca otomatik login
+  
+  const handleSubmit = async (e?: React.FormEvent, code?: string) => {
     if (e) e.preventDefault();
-    if (!rfidCode) return;
+
+    const codeToSend = (code ?? rfidCode).trim();
+    if (!codeToSend) return;
 
     setError('');
     setLoading(true);
 
     try {
-      const operator = await loginOperatorByRFID(rfidCode);
+      console.log('RFID kodu ile giriş deneniyor:', codeToSend);
+      const operator = await loginOperatorByRFID(codeToSend);
 
       if (!operator) {
         setError('RFID kartı bulunamadı veya operatör aktif değil');
-        // Biraz bekleyip input’u temizle
         setTimeout(() => setRfidCode(''), 500);
         return;
       }
@@ -39,7 +71,7 @@ export function OperatorLoginPage({ onLogin }: OperatorLoginPageProps) {
     }
   };
 
-  // RFID okutulunca otomatik login
+
   const handleChange = (rawValue: string) => {
     // Sadece rakam kalsın
     const clean = rawValue.replace(/\D/g, '');
@@ -47,7 +79,8 @@ export function OperatorLoginPage({ onLogin }: OperatorLoginPageProps) {
 
     // RFID okuyucu 10 haneli sayı gönderiyorsa:
     if (clean.length === 10 && !loading) {
-      handleSubmit();
+      // handleSubmit();
+      handleSubmit(undefined, clean);
     }
   };
 
