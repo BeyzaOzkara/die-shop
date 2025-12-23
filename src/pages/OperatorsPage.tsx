@@ -33,6 +33,17 @@ export function OperatorsPage() {
     is_active: true,
   });
 
+  const [expandedWorkCenters, setExpandedWorkCenters] = useState<Set<number>>(new Set());
+
+  const toggleExpanded = (operatorId: number) => {
+    setExpandedWorkCenters((prev) => {
+      const next = new Set(prev);
+      if (next.has(operatorId)) next.delete(operatorId);
+      else next.add(operatorId);
+      return next;
+    });
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -288,7 +299,7 @@ export function OperatorsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -323,11 +334,62 @@ export function OperatorsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {operator.employee_number || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {operator.work_centers && operator.work_centers.length > 0
                       ? operator.work_centers.map((wc) => wc.name).join(', ')
                       : '-'}
+                  </td> */}
+                  <td className="px-6 py-4 text-sm text-gray-600 align-top">
+                    {operator.work_centers && operator.work_centers.length > 0 ? (
+                      (() => {
+                        const wcs = operator.work_centers.map((wc) => wc.name);
+                        const isExpanded = expandedWorkCenters.has(operator.id);
+
+                        const visibleCount = 3;
+                        const visible = isExpanded ? wcs : wcs.slice(0, visibleCount);
+                        const remaining = wcs.length - visible.length;
+
+                        return (
+                          <div className="max-w-[520px] break-words">
+                            <div className="flex flex-wrap gap-1">
+                              {visible.map((name) => (
+                                <span
+                                  key={name}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700"
+                                  title={name}
+                                >
+                                  {name}
+                                </span>
+                              ))}
+
+                              {!isExpanded && remaining > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpanded(operator.id)}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                >
+                                  +{remaining} daha
+                                </button>
+                              )}
+
+                              {isExpanded && wcs.length > visibleCount && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpanded(operator.id)}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-50 text-gray-700 hover:bg-gray-100"
+                                >
+                                  Kapat
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      '-'
+                    )}
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
                       onClick={() => toggleActive(operator)}
