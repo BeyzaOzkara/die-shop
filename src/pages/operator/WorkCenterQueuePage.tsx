@@ -23,6 +23,9 @@ import {
   pauseOperation,
   completeOperation,
   cancelOperation,                              // ✅ NEW: zaten service’te var
+  
+  getAvailableLotsForOperation,
+  completeSawOperation,
 } from '../../services/operatorService';
 
 import type {
@@ -30,6 +33,7 @@ import type {
   WorkOrderOperation,
   OperationType,
   EligibleWorkCenterRead,
+  Lot,
 } from '../../types/database';
 import { ApiError } from '../../lib/api';
 import { mediaUrl } from '../../lib/media';
@@ -82,6 +86,28 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
   const [selectedOperationTypeId, setSelectedOperationTypeId] = useState<number | null>(
     operationTypes?.[0]?.id ?? null
   );
+
+  const SAW_OPERATION_TYPE_ID = 33;
+
+  const [showSawCompleteModal, setShowSawCompleteModal] = useState(false);
+  const [sawTargetOperation, setSawTargetOperation] = useState<WorkOrderOperation | null>(null);
+
+  const [lotsLoading, setLotsLoading] = useState(false);
+  const [lotsError, setLotsError] = useState('');
+  const [availableLots, setAvailableLots] = useState<Lot[]>([]);
+  const [selectedLotId, setSelectedLotId] = useState<number | null>(null);
+  const [cutKg, setCutKg] = useState<string>(''); // input string
+
+  const isSawOperation = (op: WorkOrderOperation) => {
+    // En neti: operation_type_id
+    if (op.operation_type_id === SAW_OPERATION_TYPE_ID) return true;
+
+    // fallback (bazı payloadlarda nested olabilir)
+    const name = (op.operation_type?.name ?? op.operation_name ?? '').toLowerCase();
+    return name.includes('testere');
+  };
+
+
 
   useEffect(() => {
     const first = operationTypes?.[0]?.id ?? null;
@@ -255,7 +281,45 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
     }
   };
 
+  const openSawCompleteModal = async (op: WorkOrderOperation) => {
+  setSawTargetOperation(op);
+  setShowSawCompleteModal(true);
+  setLotsError('');
+  setAvailableLots([]);
+  setSelectedLotId(null);
+  setCutKg('');
+
+  try {
+    setLotsLoading(true);
+    const lots = await getAvailableLotsForOperation(op.id);
+    setAvailableLots(lots);
+
+    // default: ilk lotu seç
+    setSelectedLotId(lots?.[0]?.id ?? null);
+  } catch (err) {
+    console.error(err);
+    setLotsError('Lot listesi alınamadı.');
+  } finally {
+    setLotsLoading(false);
+  }
+};
+
+const closeSawCompleteModal = () => {
+  setShowSawCompleteModal(false);
+  setSawTargetOperation(null);
+  setAvailableLots([]);
+  setSelectedLotId(null);
+  setCutKg('');
+  setLotsError('');
+};
+
   const handleCompleteOperation = async (op: WorkOrderOperation) => {
+    // TESTERE ise modal
+    if (isSawOperation(op)) {
+      await openSawCompleteModal(op);
+      return;
+    }
+
     if (!confirm('Bu operasyonu tamamlamak istediğinizden emin misiniz?')) return;
 
     try {
@@ -286,6 +350,50 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
       setActionLoading(null);
     }
   };
+
+  const submitSawComplete = async () => {
+  if (!sawTargetOperation) return;
+  if (!selectedLotId) {
+    alert('Lütfen bir lot seçin.');
+    return;
+  }
+
+  const kg = Number(String(cutKg).replace(',', '.'));
+  if (!Number.isFinite(kg) || kg <= 0) {
+    alert('Kesilen kilo geçersiz.');
+    return;
+  }
+
+  // UI validation: remaining_kg kontrolü (backend zaten kontrol ediyor)
+  const lot = availableLots.find((x) => x.id === selectedLotId);
+  if (lot && typeof lot.remaining_kg === 'number' && kg > lot.remaining_kg) {
+    alert(`Bu lotta yeterli miktar yok. Kalan: ${lot.remaining_kg} kg`);
+    return;
+  }
+
+  try {
+    setActionLoading(sawTargetOperation.id);
+
+    await completeSawOperation(sawTargetOperation.id, {
+      lot_id: selectedLotId,
+      quantity_kg: kg,
+    });
+
+    // listeden düşür (Completed oldu)
+    setOperations((prev) => prev.filter((x) => x.id !== sawTargetOperation.id));
+
+    closeSawCompleteModal();
+    alert('Testere operasyonu tamamlandı. Stok düşümü işlendi.');
+    await refreshAll();
+  } catch (err: any) {
+    console.error(err);
+    if (err instanceof ApiError) alert(err.message);
+    else alert('Testere operasyonu tamamlanırken bir hata oluştu.');
+  } finally {
+    setActionLoading(null);
+  }
+};
+
 
   const waitingOperations = operations.filter((op) => op.status === 'Waiting' || op.status === 'Paused');
 
@@ -715,6 +823,101 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
           </div>
         </div>
       )}
+
+      {showSawCompleteModal && sawTargetOperation && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div className="w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900">Testere Operasyonu Bitir</h3>
+          <p className="text-sm text-gray-600">
+            {sawTargetOperation.work_order?.order_number ?? ''} ·{' '}
+            {sawTargetOperation.operation_type?.name ?? sawTargetOperation.operation_name ?? 'TESTERE'}
+          </p>
+        </div>
+        <button
+          onClick={closeSawCompleteModal}
+          className="p-2 rounded-lg hover:bg-gray-100"
+          aria-label="Kapat"
+          disabled={actionLoading === sawTargetOperation.id}
+        >
+          <X className="w-5 h-5 text-gray-600" />
+        </button>
+      </div>
+
+      <div className="px-5 py-4 space-y-4">
+        {lotsError && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+            <AlertCircle className="w-5 h-5" />
+            <span>{lotsError}</span>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Hangi Lot?</label>
+
+          <select
+            value={selectedLotId ?? ''}
+            onChange={(e) => setSelectedLotId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+            disabled={lotsLoading}
+          >
+            {lotsLoading ? (
+              <option value="">Lotlar yükleniyor...</option>
+            ) : availableLots.length === 0 ? (
+              <option value="">(Uygun lot yok)</option>
+            ) : (
+              availableLots.map((lot) => (
+                <option key={lot.id} value={lot.id}>
+                  #{lot.certificate_number} · {lot.supplier} · Kalan {lot.remaining_kg} kg
+                </option>
+              ))
+            )}
+          </select>
+
+          <p className="mt-2 text-xs text-gray-500">
+            Sadece ilgili çeliğe ait ve remaining_kg &gt; 0 olan lotlar listelenir.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Gerçekte kaç kg kesildi?</label>
+          <input
+            value={cutKg}
+            onChange={(e) => setCutKg(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+            placeholder="örn: 12.5"
+            inputMode="decimal"
+            disabled={lotsLoading}
+          />
+        </div>
+      </div>
+
+      <div className="px-5 py-4 border-t border-gray-200 flex gap-3">
+        <button
+          onClick={closeSawCompleteModal}
+          className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+          disabled={actionLoading === sawTargetOperation.id}
+        >
+          Vazgeç
+        </button>
+        <button
+          onClick={submitSawComplete}
+          disabled={
+            actionLoading === sawTargetOperation.id ||
+            lotsLoading ||
+            !selectedLotId ||
+            !cutKg
+          }
+          className="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          {actionLoading === sawTargetOperation.id ? 'Kaydediliyor...' : 'Bitir & Stok Düş'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // src/services/operatorService.ts
 import { api } from '../lib/api';
-import type { Operator, WorkOrderOperation, WorkCenterStatus } from '../types/database';
+import type { Operator, WorkOrderOperation, WorkCenterStatus, Lot } from '../types/database';
 
 /**
  * RFID ile operatör giriş
@@ -217,5 +217,22 @@ export async function getAssignedOperationsByWorkCenter(
 ): Promise<WorkOrderOperation[]> {
   return api.get<WorkOrderOperation[]>(
     `/work-order-operations/assigned/by-work-center/${workCenterId}`
+  );
+}
+
+
+export async function getAvailableLotsForOperation(
+  operationId: string | number
+): Promise<Lot[]> {
+  return await api.get<Lot[]>(`/work-order-operations/${operationId}/available-lots`);
+}
+
+export async function completeSawOperation(
+  operationId: string | number,
+  payload: { lot_id: number; quantity_kg: number; note?: string }
+): Promise<WorkOrderOperation> {
+  return await api.post<WorkOrderOperation>(
+    `/work-order-operations/${operationId}/complete-saw`,
+    payload
   );
 }
