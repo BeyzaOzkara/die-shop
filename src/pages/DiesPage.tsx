@@ -4,7 +4,7 @@ import { DieForm } from '../components/DieForm';
 import {
   getDies,
   createDie,
-  addComponentToDie,
+  // addComponentToDie,
   createProductionOrder,
 } from '../services/dieService';
 import type { Die } from '../types/database';
@@ -37,36 +37,106 @@ export function DiesPage() {
     }
   };
 
+  // const handleCreateDie = async (formData: any) => {
+  //   let die: Die;
+  //   try {
+  //     die = await createDie({
+  //       dieNumber: formData.dieNumber,
+  //       dieDiameterMm: Number(formData.dieDiameterMm),
+  //       totalPackageLengthMm: Number(formData.totalPackageLengthMm),
+  //       dieTypeId: Number(formData.dieTypeId),
+  //       designFiles: formData.designFiles ?? [],
+  //       profileNo: formData.profileNo,
+  //       figureCount: formData.figureCount ?? null,
+  //       customerName: formData.customerName,
+  //       pressCode: formData.pressCode,
+  //     });
+  //   } catch (error) {
+  //     console.error("Kalıp oluşturulamadı:", error);
+  //     alert("Kalıp oluşturulamadı.");
+  //     return;
+  //   }
+
+  //   // 2) Componentleri ekle (burada hata olursa kalıp yine de var!)
+  //   try {
+  //     // daha hızlı: paralel
+  //     await Promise.all(
+  //       (formData.components ?? []).map((c: any) =>
+  //         addComponentToDie(
+  //           die.id,
+  //           Number(c.componentTypeId),
+  //           Number(c.stockItemId),
+  //           Number(c.packageLengthMm),
+  //           Number(c.diameterMm)
+  //         )
+  //       )
+  //     );
+
+  //     alert("Kalıp ve bileşenler başarıyla oluşturuldu.");
+  //   } catch (error) {
+  //     console.error("Bileşenler eklenemedi:", error);
+  //     alert(
+  //       "Kalıp oluşturuldu ama bileşenler eklenemedi. Kalıbı açıp bileşenleri sonradan ekleyebilirsin."
+  //     );
+  //   } finally {
+  //     setShowForm(false);
+  //     loadDies();
+  //   }
+  //   // try {
+  //   //   const die = await createDie({
+  //   //     dieNumber: formData.dieNumber,
+  //   //     dieDiameterMm: Number(formData.dieDiameterMm),
+  //   //     totalPackageLengthMm: Number(formData.tostalPackageLengthMm),
+  //   //     dieTypeId: Number(formData.dieTypeId),
+  //   //     designFiles: formData.designFiles ?? [],
+
+  //   //     profileNo: formData.profileNo,
+  //   //     figureCount: formData.figureCount ?? null,
+  //   //     customerName: formData.customerName,
+  //   //     pressCode: formData.pressCode,
+  //   //   });
+
+  //   //   for (const component of formData.components) {
+  //   //     await addComponentToDie(
+  //   //       die.id,
+  //   //       Number(component.componentTypeId),
+  //   //       Number(component.stockItemId),
+  //   //       Number(component.packageLengthMm),
+  //   //       Number(component.diameterMm)
+  //   //     );
+  //   //   }
+
+  //   //   setShowForm(false);
+  //   //   loadDies();
+  //   // } catch (error) {
+  //   //   console.error('Kalıp oluşturulamadı:', error);
+  //   //   alert('Kalıp oluşturulurken bir hata oluştu.');
+  //   // }
+  // };
+
   const handleCreateDie = async (formData: any) => {
     try {
-      const die = await createDie({
+      await createDie({
         dieNumber: formData.dieNumber,
         dieDiameterMm: Number(formData.dieDiameterMm),
         totalPackageLengthMm: Number(formData.totalPackageLengthMm),
         dieTypeId: Number(formData.dieTypeId),
         designFiles: formData.designFiles ?? [],
-
         profileNo: formData.profileNo,
         figureCount: formData.figureCount ?? null,
         customerName: formData.customerName,
         pressCode: formData.pressCode,
+
+        // ✅ NEW: components artık createDie’ye gidiyor
+        components: formData.components ?? [],
       });
 
-      for (const component of formData.components) {
-        await addComponentToDie(
-          die.id,
-          Number(component.componentTypeId),
-          Number(component.stockItemId),
-          Number(component.packageLengthMm),
-          Number(component.diameterMm)
-        );
-      }
-
+      alert("Kalıp ve bileşenler başarıyla oluşturuldu.");
       setShowForm(false);
       loadDies();
     } catch (error) {
-      console.error('Kalıp oluşturulamadı:', error);
-      alert('Kalıp oluşturulurken bir hata oluştu.');
+      console.error("Kalıp oluşturulamadı:", error);
+      alert("Kalıp oluşturulamadı. (Bileşenler dahil atomik işlem)");
     }
   };
 

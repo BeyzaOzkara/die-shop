@@ -206,6 +206,7 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               value={profileNo}
               onChange={(e) => setProfileNo(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
             />
           </div>
 
@@ -216,6 +217,7 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               value={pressCode}
               onChange={(e) => setPressCode(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
             />
           </div>
 
@@ -226,6 +228,7 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
             />
           </div>
 
@@ -284,6 +287,7 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               value={figureCount}
               onChange={(e) => setFigureCount(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
               min="0"
               step="1"
             />
@@ -399,9 +403,16 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
                       <input
                         type="number"
                         value={component.packageLengthMm || ''}
-                        onChange={(e) =>
-                          updateComponent(index, 'packageLengthMm', e.target.value)
-                        }
+                        // onChange={(e) =>
+                        //   updateComponent(index, 'packageLengthMm', e.target.value)
+                        // }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          // input type=number bazı klavyelerde "12,5" getirebiliyor → normalize
+                          const normalized = v.replace(",", ".");
+                          const num = normalized === "" ? 0 : Number(normalized);
+                          updateComponent(index, "packageLengthMm", Number.isFinite(num) ? num : 0);
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                         min="0"

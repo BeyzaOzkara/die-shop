@@ -1,6 +1,6 @@
 // src/services/operatorService.ts
 import { api } from '../lib/api';
-import type { Operator, WorkOrderOperation } from '../types/database';
+import type { Operator, WorkOrderOperation, WorkCenterStatus } from '../types/database';
 
 /**
  * RFID ile operatör giriş
@@ -45,6 +45,7 @@ export async function createOperator(payload: {
   rfid_code: string;
   name: string;
   employee_number?: string;
+  role: Operator['role'];
   work_center_ids: number[];
   is_active: boolean;
 }): Promise<Operator> {
@@ -61,6 +62,7 @@ export async function updateOperator(
     rfid_code: string;
     name: string;
     employee_number?: string;
+    role: Operator['role'];
     work_center_ids: number[];
     is_active: boolean;
   }>
@@ -78,8 +80,8 @@ export async function deleteOperator(id: string | number): Promise<void> {
 
 /**
  * Operatör paneli:
- * Belirli bir çalışma merkezindeki operasyon kuyruğu
- * GET /work-centers/{work_center_id}/operations-queue
+ * (Eski) Belirli bir çalışma merkezindeki operasyon kuyruğu
+ * GET /work-order-operations/by-work-center/{workCenterId}
  */
 export async function getWorkCenterOperations(
   workCenterId: string | number
@@ -95,24 +97,51 @@ export async function getWorkCenterOperations(
  * POST /work-order-operations/{id}/start
  * Body: { operator_id, operator_name }
  */
-export async function startOperation(
+// export async function startOperation(
+//   operationId: string | number,
+//   operatorId: string | number, // bu apiye eklenmeli
+//   operatorName: string
+// ): Promise<WorkOrderOperation> {
+//   return await api.patch<WorkOrderOperation>(
+//     // `/work-order-operations/${operationId}/start`,
+//     // {
+//     //   operator_id: operatorId,
+//     //   operator_name: operatorName,
+//     // }
+//     `/work-order-operations/${operationId}`,
+//     {
+//       status: 'InProgress',
+//       operator_name: operatorName,
+//     }
+//   );
+// }
+
+
+export async function getAvailableOperationsForOperator(payload: {
+  operator_id: number;
+  operation_type_id: number;
+}): Promise<WorkOrderOperation[]> {
+  return api.post<WorkOrderOperation[]>(
+    `/work-order-operations/available-for-operator`,
+    payload
+  );
+}
+
+
+export async function startOperation( // operatörün kullandığı start work center atama yapan
   operationId: string | number,
-  operatorId: string | number, // bu apiye eklenmeli
-  operatorName: string
+  workCenterId: string | number,
+  operatorName?: string
 ): Promise<WorkOrderOperation> {
-  return await api.patch<WorkOrderOperation>(
-    // `/work-order-operations/${operationId}/start`,
-    // {
-    //   operator_id: operatorId,
-    //   operator_name: operatorName,
-    // }
-    `/work-order-operations/${operationId}`,
+  return await api.post<WorkOrderOperation>(
+    `/work-order-operations/${operationId}/start`,
     {
-      status: 'InProgress',
+      work_center_id: Number(workCenterId),
       operator_name: operatorName,
     }
   );
 }
+
 
 /**
  * Operasyon duraklat
@@ -160,3 +189,33 @@ export async function cancelOperation(
     }
   );
  }
+
+ export interface EligibleWorkCenterRead {
+  id: number;
+  name: string;
+  status: WorkCenterStatus;
+}
+
+export async function getEligibleWorkCentersForOperator(
+  operatorId: number,
+  operationTypeId: number
+): Promise<EligibleWorkCenterRead[]> {
+  // api.get wrapper'ına göre params geçişi:
+  return await api.get<EligibleWorkCenterRead[]>(
+    `/operators/${operatorId}/eligible-work-centers?operation_type_id=${operationTypeId}`
+  );
+}
+
+// Operatör restore edilebilir public bilgileri, kullanacak mıyız bilmiyorum şimdilik ekledim
+export async function getOperatorPublicById(id: number): Promise<Operator> {
+  return await api.get<Operator>(`/operators/public/${id}`);
+}
+
+// ✅ NEW
+export async function getAssignedOperationsByWorkCenter(
+  workCenterId: number
+): Promise<WorkOrderOperation[]> {
+  return api.get<WorkOrderOperation[]>(
+    `/work-order-operations/assigned/by-work-center/${workCenterId}`
+  );
+}

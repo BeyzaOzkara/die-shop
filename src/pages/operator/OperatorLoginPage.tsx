@@ -30,35 +30,6 @@ export function OperatorLoginPage({ onLogin }: OperatorLoginPageProps) {
         return;
       }
 
-//       Access to fetch at 'http://localhost:8000/production-orders/8/generate-work-orders' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
-// api.ts:145   POST http://localhost:8000/production-orders/8/generate-work-orders net::ERR_FAILED 500 (Internal Server Error)
-// request @ api.ts:145
-// post @ api.ts:181
-// createWorkOrders @ dieService.ts:124
-// handleStatusChange @ ProductionOrdersPage.tsx:74
-// await in handleStatusChange
-// onClick @ ProductionOrdersPage.tsx:268
-// callCallback2 @ react-dom.development.js:4164
-// invokeGuardedCallbackDev @ react-dom.development.js:4213
-// invokeGuardedCallback @ react-dom.development.js:4277
-// invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
-// executeDispatch @ react-dom.development.js:9041
-// processDispatchQueueItemsInOrder @ react-dom.development.js:9073
-// processDispatchQueue @ react-dom.development.js:9086
-// dispatchEventsForPlugins @ react-dom.development.js:9097
-// (anonymous) @ react-dom.development.js:9288
-// batchedUpdates$1 @ react-dom.development.js:26179
-// batchedUpdates @ react-dom.development.js:3991
-// dispatchEventForPluginEventSystem @ react-dom.development.js:9287
-// dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
-// dispatchEvent @ react-dom.development.js:6457
-// dispatchDiscreteEvent @ react-dom.development.js:6430
-// ProductionOrdersPage.tsx:83  Durum güncellenemedi: TypeError: Failed to fetch
-//     at request (api.ts:145:21)
-//     at Object.post (api.ts:181:5)
-//     at createWorkOrders (dieService.ts:124:13)
-//     at handleStatusChange (ProductionOrdersPage.tsx:74:15)
-
       onLogin(operator);
     } catch (err: any) {
       console.error('Giriş hatası:', err);

@@ -2,6 +2,15 @@ import { api } from '../lib/api';
 import { calculateTheoreticalConsumption } from '../lib/calculations';
 import type { Die, DieComponent, ProductionOrder } from '../types/database';
 
+// CreateDie için component tipi (DieForm’dan gelen shape)
+type CreateDieComponent = {
+  componentTypeId: string;
+  stockItemId: string;
+  packageLengthMm: number;
+  diameterMm: number;
+  theoreticalConsumptionKg: number;
+};
+
 // =======================
 // Dies
 // =======================
@@ -40,6 +49,9 @@ export async function createDie(params: {
   figureCount?: number | null;
   customerName?: string;
   pressCode?: string;
+
+  // ✅ NEW
+  components: CreateDieComponent[];
 }): Promise<Die> {
   const fd = new FormData();
 
@@ -56,6 +68,20 @@ export async function createDie(params: {
       figure_count: params.figureCount ?? null,
       customer_name: params.customerName ?? null,
       press_code: params.pressCode ?? null,
+
+      // ✅ NEW: backend DieCreateIn.components
+      components: (params.components ?? []).map((c) => {
+        const packageLen = Number(c.packageLengthMm);
+        const diameter = Number(c.diameterMm);
+        const theoretical = calculateTheoreticalConsumption(packageLen, diameter);
+
+        return {
+          component_type_id: Number(c.componentTypeId),
+          stock_item_id: Number(c.stockItemId),
+          package_length_mm: packageLen, // backend int ise Math.round(packageLen) yap
+          theoretical_consumption_kg: theoretical,
+        };
+      }),
     })
   );
 

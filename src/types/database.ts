@@ -4,6 +4,18 @@ export type OrderStatus = 'Waiting' | 'InProgress' | 'Completed' | 'Cancelled';
 export type WorkCenterStatus = 'Available' | 'Busy' | 'UnderMaintenance';
 export type OperationStatus = 'Waiting' | 'InProgress' | 'Completed' | 'Paused' | 'Cancelled';
 export type DieStatus = 'Draft' | 'Waiting' | 'Ready' | 'InProduction' | 'Completed';
+export type OperatorRole = 'Operator' | 'QualityControl' | 'Supervisor' | 'Manager';
+
+export interface User {
+  id: number;
+  username: string;
+  name: string;
+  surname: string;
+  email?: string | null;
+  is_active: boolean;
+  is_admin: boolean;
+  created_at?: string; // opsiyonel, backend'den gelebilir
+}
 
 // ===========================
 // DIE TYPES
@@ -263,8 +275,15 @@ export interface Operator {
   rfid_code: string;
   name: string;
   employee_number?: string;
+  role: OperatorRole;      
   is_active: boolean;
   created_at: string;
   updated_at: string;
   work_centers?: WorkCenter[];
+}
+
+export interface EligibleWorkCenterRead {
+  id: number;
+  name: string;
+  status: WorkCenterStatus;
 }
