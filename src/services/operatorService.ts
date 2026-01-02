@@ -75,7 +75,7 @@ export async function updateOperator(
  * DELETE /operators/{id}
  */
 export async function deleteOperator(id: string | number): Promise<void> {
-  // await api.delete(`/operators/${id}`);
+  await api.del(`/operators/${id}`);
 }
 
 /**

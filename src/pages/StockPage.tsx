@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Package, Plus, FileText } from 'lucide-react';
+import { Package, Plus, FileText, Trash2 } from 'lucide-react';
 import {
   getSteelStockItems,
   createSteelStockItem,
   getLots,
   createLot,
   getStockMovements, // 🔹 buraya taşındı
+  deleteLot,
 } from '../services/stockService';
 // import { getStockMovements } from '../services/orderService'; // 🔹 ARTIK GEREK YOK
 import type { SteelStockItem, Lot, StockMovement } from '../types/database';
@@ -34,6 +35,27 @@ export function StockPage() {
     certificate_file_url: '',
     received_date: new Date().toISOString().split('T')[0],
   });
+
+  const handleDeleteLot = async (lotId: number) => {
+    const ok = window.confirm('Bu lotu silmek istediğine emin misin?');
+    if (!ok) return;
+
+    try {
+      await deleteLot(lotId);
+      loadData();
+    } catch (error: any) {
+      console.error('Lot silinemedi:', error);
+
+      // Backend 409 gönderiyorsa kullanıcıya düzgün mesaj
+      const msg =
+        error?.response?.status === 409
+          ? error?.response?.data?.detail || 'Bu lot kullanıldığı için silinemez.'
+          : 'Lot silinirken bir hata oluştu.';
+
+      alert(msg);
+    }
+  };
+
 
   useEffect(() => {
     loadData();
@@ -502,6 +524,10 @@ export function StockPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Giriş Tarihi
                     </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      İşlemler
+                    </th>
+
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -533,6 +559,17 @@ export function StockPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {new Date(lot.received_date).toLocaleDateString('tr-TR')}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <button
+                          onClick={() => handleDeleteLot(lot.id)}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                          title="Lotu Sil"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Sil
+                        </button>
+                      </td>
+
                     </tr>
                   ))}
                 </tbody>

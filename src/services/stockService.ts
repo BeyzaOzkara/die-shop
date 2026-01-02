@@ -55,3 +55,8 @@ export async function updateLotStock(
     remaining_kg: remainingKg,
   });
 }
+
+export async function deleteLot(lotId: number | string): Promise<void> {
+  await api.del(`/inventory/lots/${lotId}`);
+}
+
