@@ -550,8 +550,11 @@ const closeSawCompleteModal = () => {
                           {operation.sequence_number}
                         </span>
                         <div>
+                          {/* <h3 className="text-lg font-semibold text-gray-900"> */}
+                            {/* {operation.operation_type?.name ?? operation.operation_name ?? 'Operasyon'}
+                          </h3> */}
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {operation.operation_type?.name ?? operation.operation_name ?? 'Operasyon'}
+                            {operation.operation_name ?? 'Operasyon'}
                           </h3>
                           <p className="text-sm text-gray-600">{operation.work_order?.order_number ?? ''}</p>
                         </div>
@@ -672,9 +675,15 @@ const closeSawCompleteModal = () => {
                                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-700 font-semibold text-sm">
                                       {op.sequence_number}
                                     </span>
-                                    <h4 className="font-semibold text-gray-900 truncate">
+                                    {/* <h4 className="font-semibold text-gray-900 truncate">
                                       {op.operation_type?.name ?? op.operation_name ?? 'Operasyon'}
+                                    </h4> */}
+                                    <h4 className="font-semibold text-gray-900 truncate">
+                                      {op.operation_name ?? 'Operasyon'}
                                     </h4>
+                                    <p className="text-[11px] text-gray-500 truncate">
+                                      Tip: {op.operation_type?.name ?? '—'}
+                                    </p>
                                   </div>
                                   <p className="text-xs text-gray-600 mt-1 truncate">
                                     {op.work_order?.order_number ?? ''}
@@ -767,8 +776,7 @@ const closeSawCompleteModal = () => {
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Operasyonu Başlat</h3>
                 <p className="text-sm text-gray-600">
-                  {selectedOperation.operation_type?.name ?? selectedOperation.operation_name ?? 'Operasyon'} ·{' '}
-                  {selectedOperation.work_order?.order_number ?? ''}
+                  {selectedOperation.operation_name ?? 'Operasyon'}  ·  {selectedOperation.work_order?.order_number ?? ''}
                 </p>
               </div>
               <button
