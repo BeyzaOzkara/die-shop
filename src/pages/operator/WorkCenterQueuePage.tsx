@@ -876,9 +876,13 @@ const closeSawCompleteModal = () => {
               <option value="">(Uygun lot yok)</option>
             ) : (
               availableLots.map((lot) => (
+                // <option key={lot.id} value={lot.id}>
+                //   #{lot.certificate_number} · {lot.supplier} · Kalan {lot.remaining_kg} kg
+                // </option>
                 <option key={lot.id} value={lot.id}>
-                  #{lot.certificate_number} · {lot.supplier} · Kalan {lot.remaining_kg} kg
+                  Ø{(lot as any).diameter_mm ?? '—'} · {lot.supplier} · Kalan {lot.remaining_kg} kg
                 </option>
+
               ))
             )}
           </select>
