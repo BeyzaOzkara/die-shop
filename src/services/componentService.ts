@@ -27,3 +27,7 @@ export async function updateBOMOperation(
 export async function deleteBOMOperation(id: number): Promise<void> {
   await api.del<void>(`/component-bom/${id}`);
 }
+
+export async function reorderBOMOperations(bomIds: number[]): Promise<void> {
+  await api.post('/component-bom/reorder', { bom_ids: bomIds });
+}

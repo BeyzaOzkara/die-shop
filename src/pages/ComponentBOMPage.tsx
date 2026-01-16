@@ -6,6 +6,7 @@ import {
   createBOMOperation,
   updateBOMOperation,
   deleteBOMOperation,
+  reorderBOMOperations,
 } from '../services/componentService'; // 🔹 componentService -> componentServices
 import { getWorkCenters } from '../services/workCenterService';
 import { getOperationTypes } from '../services/operationTypeService';
@@ -137,6 +138,36 @@ export function ComponentBOMPage() {
     } catch (error: any) {
       console.error('Silme başarısız:', error);
       alert(error.message || 'Silme işlemi başarısız oldu');
+    }
+  };
+
+  const handleReorder = async (index: number, direction: -1 | 1) => {
+    // Current operations array is sorted by sequence_number
+    // Swap with neighbor
+    const newOperations = [...operations];
+    const targetIndex = index + direction;
+
+    // Safety check
+    if (targetIndex < 0 || targetIndex >= newOperations.length) return;
+
+    // Swap items in local array
+    [newOperations[index], newOperations[targetIndex]] = [newOperations[targetIndex], newOperations[index]];
+
+    // Optimistic UI update: update sequence numbers locally
+    newOperations.forEach((op, idx) => {
+      op.sequence_number = idx + 1;
+    });
+    setOperations(newOperations);
+
+    try {
+      // Send ALL ids in new order to backend
+      const bomIds = newOperations.map(op => op.id);
+      await reorderBOMOperations(bomIds);
+      // await loadOperations(); // Optional: reload to be sure
+    } catch (error) {
+      console.error("Reorder failed: ", error);
+      alert("Sıralama güncellenemedi.");
+      loadOperations(); // Revert on error
     }
   };
 
@@ -395,16 +426,40 @@ export function ComponentBOMPage() {
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {operations.map((op) => (
+                      {operations.map((op, index) => (
                         <div
                           key={op.id}
                           className="flex items-start justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
+                              {/* <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
                                 {op.sequence_number}
-                              </span>
+                              </span> */}
+                              {/* Sequence & Reorder Controls */}
+                              <div className="flex flex-col items-center gap-1 mr-2">
+                                <button
+                                  onClick={() => handleReorder(index, -1)}
+                                  disabled={index === 0}
+                                  className="text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-gray-400"
+                                  title="Yukarı Taşı"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                                </button>
+                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
+                                  {op.sequence_number}
+                                </span>
+                                <button
+                                  onClick={() => handleReorder(index, 1)}
+                                  disabled={index === operations.length - 1}
+                                  className="text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-gray-400"
+                                  title="Aşağı Taşı"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                              </div>
+
+
                               <div>
                                 <div className="font-medium text-gray-900">
                                   {op.operation_name}

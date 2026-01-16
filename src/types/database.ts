@@ -84,6 +84,7 @@ export interface OperationType {
   description?: string | null;
   is_active: boolean;
   created_at: string;
+  execution_mode:'Single' | 'Batch';
 }
 
 // ===========================
@@ -173,6 +174,7 @@ export interface Die {
   // Supabase'te de benzer mantık vardı; backend FastAPI bunu die_type_ref olarak döndürüyor.
   die_type_ref?: DieTypeRef;
   files?: FileItem[];
+  components?: DieComponent[];
 }
 
 export interface DieComponent {
@@ -251,6 +253,7 @@ export interface WorkOrderOperation {
   work_center?: WorkCenter;
   operation_type?: OperationType; 
   work_order?: WorkOrder;
+  meta_data?: Record<string, any>;
 }
 
 // ===========================
@@ -286,4 +289,43 @@ export interface EligibleWorkCenterRead {
   id: number;
   name: string;
   status: WorkCenterStatus;
+}
+
+// ===========================
+// PREVIEW & PLANNING (NEW)
+// ===========================
+
+export interface OperationTypeNested { // Mevcut OperationType'dan farklı (backend nested)
+  id: number;
+  code: string;
+  name: string;
+}
+
+export interface BOMOperationPreview {
+  bom_id: number;
+  sequence_number: number;
+  operation_name: string;
+  operation_type: OperationTypeNested;
+  estimated_duration_minutes?: number | null;
+  notes?: string | null;
+}
+
+export interface ComponentPreview {
+  component_id: number;
+  component_type: {
+    id: number;
+    code: string;
+    name: string;
+  };
+  package_length_mm: number;
+  theoretical_consumption_kg: number;
+  bom_operations: BOMOperationPreview[];
+}
+
+export interface WorkOrderPreviewResponse {
+  production_order_id: number;
+  die_number: string;
+  components: ComponentPreview[];
+  total_components: number;
+  total_operations: number;
 }
