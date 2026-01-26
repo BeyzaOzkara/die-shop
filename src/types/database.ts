@@ -171,6 +171,8 @@ export interface Die {
   customer_name: string;
   press_code: string;
 
+  is_revisioned: boolean;
+
   // Supabase'te de benzer mantık vardı; backend FastAPI bunu die_type_ref olarak döndürüyor.
   die_type_ref?: DieTypeRef;
   files?: FileItem[];

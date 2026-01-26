@@ -49,8 +49,9 @@ export async function createDie(params: {
   figureCount?: number | null;
   customerName?: string;
   pressCode?: string;
+  
+  isRevisioned: boolean;
 
-  // ✅ NEW
   components: CreateDieComponent[];
 }): Promise<Die> {
   const fd = new FormData();
@@ -68,6 +69,7 @@ export async function createDie(params: {
       figure_count: params.figureCount ?? null,
       customer_name: params.customerName ?? null,
       press_code: params.pressCode ?? null,
+      is_revisioned: Boolean(params.isRevisioned),
 
       // ✅ NEW: backend DieCreateIn.components
       components: (params.components ?? []).map((c) => {
