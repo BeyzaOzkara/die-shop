@@ -85,16 +85,6 @@ export function DiesPage() {
     }
   };
 
-  // const getStatusColor = (status: Die['status']) => {
-  //   const colors: Record<Die['status'], string> = {
-  //     Draft: 'bg-gray-100 text-gray-800',
-  //     Waiting: 'bg-yellow-100 text-yellow-800',
-  //     Ready: 'bg-blue-100 text-blue-800',
-  //     'InProduction': 'bg-yellow-100 text-yellow-800',
-  //     Completed: 'bg-green-100 text-green-800',
-  //   };
-  //   return colors[status] || colors.Draft;
-  // };
   const getStatusColor = (status: Die['status']) => {
     const colors = {
       Draft: 'bg-gray-200 text-gray-800',
@@ -157,21 +147,6 @@ export function DiesPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Kalıplar</h1>
-          <p className="text-gray-600 mt-1">
-            Sistemdeki kalıpları görüntüleyin ve yönetin
-          </p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-        >
-          <Plus className="w-5 h-5" />
-          Yeni Kalıp
-        </button>
-      </div> */}
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
@@ -238,9 +213,17 @@ export function DiesPage() {
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {die.die_number}
-                    </h3>
+                    <div className='flex items-center gap-2'>
+                      <h3 className="font-semibold text-gray-900">
+                        {die.die_number}
+                      </h3>
+                      {/* ✅ NEW: Revizyon badge */}
+                      {die.is_revisioned && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-800 border border-orange-200">
+                          REV
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600">
                       Ø{die.die_diameter_mm}mm • {getDieTypeDisplay(die)}
                     </p>
