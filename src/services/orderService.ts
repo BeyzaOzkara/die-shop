@@ -189,3 +189,24 @@ export async function getStockMovements(): Promise<StockMovement[]> {
   // GET /inventory/stock-movements
   return api.get<StockMovement[]>('/inventory/stock-movements');
 }
+
+// =======================
+// Planning & Generation
+// =======================
+
+// Tip: selectedOperations: { [componentId: number]: number[] } 
+// key: component_id, value: list of bom_ids
+export async function previewWorkOrders(productionOrderId: number): Promise<import('../types/database').WorkOrderPreviewResponse> {
+  return api.post<import('../types/database').WorkOrderPreviewResponse>(
+    `/production-orders/${productionOrderId}/preview-work-orders`,
+    {}
+  );
+}
+
+export async function createWorkOrders(
+  productionOrderId: number,
+  selectedOperations?: Record<number, number[]>
+): Promise<void> {
+  const payload = selectedOperations ? { selected_operations: selectedOperations } : {};
+  await api.post(`/production-orders/${productionOrderId}/generate-work-orders`, payload);
+}
