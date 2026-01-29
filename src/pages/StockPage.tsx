@@ -8,7 +8,6 @@ import {
   getStockMovements, // 🔹 buraya taşındı
   deleteLot,
 } from '../services/stockService';
-// import { getStockMovements } from '../services/orderService'; // 🔹 ARTIK GEREK YOK
 import type { SteelStockItem, Lot, StockMovement } from '../types/database';
 
 export function StockPage() {
@@ -32,9 +31,12 @@ export function StockPage() {
     supplier: '',
     length_mm: '',
     gross_weight_kg: '',
-    certificate_file_url: '',
+    // certificate_file_url: '',
     received_date: new Date().toISOString().split('T')[0],
   });
+
+  // yeni: sertifika dosyaları (çoklu destek)
+  const [lotCertificateFiles, setLotCertificateFiles] = useState<File[]>([]);
 
   const handleDeleteLot = async (lotId: number) => {
     const ok = window.confirm('Bu lotu silmek istediğine emin misin?');
@@ -111,18 +113,20 @@ export function StockPage() {
         length_mm: Number(newLot.length_mm),
         gross_weight_kg: grossWeight,
         remaining_kg: grossWeight,
-        certificate_file_url: newLot.certificate_file_url || undefined,
         received_date: newLot.received_date,
-      });
+      }, 
+      lotCertificateFiles
+    );
+
       setNewLot({
         stock_item_id: '',
         certificate_number: '',
         supplier: '',
         length_mm: '',
         gross_weight_kg: '',
-        certificate_file_url: '',
         received_date: new Date().toISOString().split('T')[0],
       });
+      setLotCertificateFiles([]);
       setShowLotForm(false);
       loadData();
     } catch (error) {
@@ -146,9 +150,7 @@ export function StockPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Stok Yönetimi</h1>
-        <p className="text-gray-600 mt-1">
-          Çelik ürünleri, lotları ve hareketleri yönetin
-        </p>
+        <p className="text-gray-600 mt-1">Çelik ürünleri, lotları ve hareketleri yönetin</p>
       </div>
 
       {/* TABLAR */}
@@ -205,55 +207,35 @@ export function StockPage() {
               onSubmit={handleCreateItem}
               className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Yeni Çelik Ürün
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Çelik Ürün</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Alaşım *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Alaşım *</label>
                   <input
                     type="text"
                     value={newItem.alloy}
-                    onChange={(e) =>
-                      setNewItem({ ...newItem, alloy: e.target.value })
-                    }
+                    onChange={(e) => setNewItem({ ...newItem, alloy: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Çap (mm) *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Çap (mm) *</label>
                   <input
                     type="number"
                     value={newItem.diameter_mm}
-                    onChange={(e) =>
-                      setNewItem({
-                        ...newItem,
-                        diameter_mm: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewItem({ ...newItem, diameter_mm: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     step="0.01"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Açıklama
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
                   <input
                     type="text"
                     value={newItem.description}
-                    onChange={(e) =>
-                      setNewItem({
-                        ...newItem,
-                        description: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -279,12 +261,8 @@ export function StockPage() {
           {stockItems.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Henüz çelik ürün yok
-              </h3>
-              <p className="text-gray-600">
-                Yukarıdaki butonu kullanarak yeni ürün ekleyin
-              </p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz çelik ürün yok</h3>
+              <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni ürün ekleyin</p>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -305,15 +283,9 @@ export function StockPage() {
                 <tbody className="divide-y divide-gray-200">
                   {stockItems.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {item.alloy}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        Ø{item.diameter_mm}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {item.description || '-'}
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.alloy}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Ø{item.diameter_mm}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{item.description || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -341,22 +313,14 @@ export function StockPage() {
               onSubmit={handleCreateLot}
               className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Yeni Lot
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Lot</h3>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Çelik Ürün *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Çelik Ürün *</label>
                   <select
                     value={newLot.stock_item_id}
-                    onChange={(e) =>
-                      setNewLot({
-                        ...newLot,
-                        stock_item_id: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewLot({ ...newLot, stock_item_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
@@ -368,115 +332,107 @@ export function StockPage() {
                     ))}
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sertifika No *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika No *</label>
                   <input
                     type="text"
                     value={newLot.certificate_number}
-                    onChange={(e) =>
-                      setNewLot({
-                        ...newLot,
-                        certificate_number: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewLot({ ...newLot, certificate_number: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tedarikçi *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tedarikçi *</label>
                   <input
                     type="text"
                     value={newLot.supplier}
-                    onChange={(e) =>
-                      setNewLot({
-                        ...newLot,
-                        supplier: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewLot({ ...newLot, supplier: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Uzunluk (mm) *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Uzunluk (mm) *</label>
                   <input
                     type="number"
                     value={newLot.length_mm}
-                    onChange={(e) =>
-                      setNewLot({
-                        ...newLot,
-                        length_mm: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewLot({ ...newLot, length_mm: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     step="0.01"
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Brüt Ağırlık (kg) *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Brüt Ağırlık (kg) *</label>
                   <input
                     type="number"
                     value={newLot.gross_weight_kg}
-                    onChange={(e) =>
-                      setNewLot({
-                        ...newLot,
-                        gross_weight_kg: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewLot({ ...newLot, gross_weight_kg: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     step="0.01"
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Giriş Tarihi *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Giriş Tarihi *</label>
                   <input
                     type="date"
                     value={newLot.received_date}
-                    onChange={(e) =>
-                      setNewLot({
-                        ...newLot,
-                        received_date: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewLot({ ...newLot, received_date: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
+
+                {/* ✅ Sertifika dosyası upload */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sertifika Dosyası URL
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika Dosyası</label>
                   <input
-                    type="text"
-                    value={newLot.certificate_file_url}
-                    onChange={(e) =>
-                      setNewLot({
-                        ...newLot,
-                        certificate_file_url: e.target.value,
-                      })
-                    }
+                    type="file"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      setLotCertificateFiles(files);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="https://..."
                   />
+
+                  {lotCertificateFiles.length > 0 && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      <div className="font-medium text-gray-700 mb-1">Seçilen dosyalar:</div>
+                      <ul className="list-disc pl-5">
+                        {lotCertificateFiles.map((f, idx) => (
+                          <li key={`${f.name}-${idx}`}>
+                            {f.name}{' '}
+                            <span className="text-gray-400">({Math.round(f.size / 1024)} KB)</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={() => setLotCertificateFiles([])}
+                        className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+                      >
+                        Dosyaları Temizle
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
+
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowLotForm(false)}
+                  onClick={() => {
+                    setShowLotForm(false);
+                    setLotCertificateFiles([]);
+                  }}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   İptal
@@ -494,12 +450,8 @@ export function StockPage() {
           {lots.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Henüz lot yok
-              </h3>
-              <p className="text-gray-600">
-                Yukarıdaki butonu kullanarak yeni lot ekleyin
-              </p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz lot yok</h3>
+              <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni lot ekleyin</p>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -527,9 +479,9 @@ export function StockPage() {
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       İşlemler
                     </th>
-
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-gray-200">
                   {lots.map((lot) => (
                     <tr key={lot.id} className="hover:bg-gray-50">
@@ -539,21 +491,17 @@ export function StockPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {lot.stock_item?.alloy} - Ø{lot.stock_item?.diameter_mm}mm
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {lot.supplier}
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{lot.supplier}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {lot.gross_weight_kg.toFixed(2)} kg
+                        {Number(lot.gross_weight_kg).toFixed(2)} kg
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span
                           className={
-                            lot.remaining_kg > 0
-                              ? 'text-green-600 font-medium'
-                              : 'text-red-600'
+                            Number(lot.remaining_kg) > 0 ? 'text-green-600 font-medium' : 'text-red-600'
                           }
                         >
-                          {lot.remaining_kg.toFixed(2)} kg
+                          {Number(lot.remaining_kg).toFixed(2)} kg
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -569,7 +517,6 @@ export function StockPage() {
                           Sil
                         </button>
                       </td>
-
                     </tr>
                   ))}
                 </tbody>
@@ -585,12 +532,8 @@ export function StockPage() {
           {movements.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Henüz hareket yok
-              </h3>
-              <p className="text-gray-600">
-                İş emirleri tamamlandığında stok hareketleri burada görünecektir
-              </p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz hareket yok</h3>
+              <p className="text-gray-600">İş emirleri tamamlandığında stok hareketleri burada görünecektir</p>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -630,7 +573,7 @@ export function StockPage() {
                         {movement.lot?.certificate_number}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                        -{movement.quantity_kg.toFixed(2)} kg
+                        -{Number(movement.quantity_kg).toFixed(2)} kg
                       </td>
                     </tr>
                   ))}

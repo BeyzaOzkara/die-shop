@@ -27,11 +27,25 @@ export async function createLot(payload: {
   length_mm: number;
   gross_weight_kg: number;
   remaining_kg: number;
-  certificate_file_url?: string;
+  // certificate_file_url?: string;
   received_date: string; // "YYYY-MM-DD" formatında
-}): Promise<Lot> {
-  return api.post<Lot>('/inventory/lots', payload);
+}, certificateFiles: File[] = []): Promise<Lot> {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+
+  for (const f of certificateFiles) {
+    formData.append('certificate_files', f);
+  }
+
+  // api wrapper'ın axios ise, header'ı elle vermesen de olur.
+  // Ama bazı wrapper'larda gerekebiliyor:
+  return api.post<Lot>('/inventory/lots', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
 }
+// }): Promise<Lot> {
+//   return api.post<Lot>('/inventory/lots', payload);
+// }
 
 // Belirli stok item için kalan lotlar
 export async function getAvailableLots(
