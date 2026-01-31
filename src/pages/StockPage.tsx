@@ -9,6 +9,7 @@ import {
   deleteLot,
 } from '../services/stockService';
 import type { SteelStockItem, Lot, StockMovement } from '../types/database';
+import { mediaUrl } from "../lib/media";
 
 export function StockPage() {
   const [activeTab, setActiveTab] = useState<'items' | 'lots' | 'movements'>('items');
@@ -477,6 +478,9 @@ export function StockPage() {
                       Giriş Tarihi
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Dosyalar
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       İşlemler
                     </th>
                   </tr>
@@ -507,6 +511,28 @@ export function StockPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {new Date(lot.received_date).toLocaleDateString('tr-TR')}
                       </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {lot.files && lot.files.length > 0 ? (
+                          <div className="flex items-center gap-2">
+                            {lot.files.map((f) => (
+                              <a
+                                key={f.id}
+                                href={mediaUrl(f.storage_path)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={f.original_name}   // ✅ hover tooltip
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                              >
+                                <FileText className="w-5 h-5" />
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+
+
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <button
                           onClick={() => handleDeleteLot(lot.id)}

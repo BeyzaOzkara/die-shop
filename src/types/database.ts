@@ -132,6 +132,7 @@ export interface Lot {
   received_date: string;
   created_at: string;
   stock_item?: SteelStockItem;
+  files?: FileItem[];
 }
 
 // ===========================
