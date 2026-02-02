@@ -520,7 +520,7 @@ export function StockPage() {
                                 href={mediaUrl(f.storage_path)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                title={f.original_name}   // ✅ hover tooltip
+                                title={f.original_name}   // hover tooltip
                                 className="text-blue-600 hover:text-blue-800 transition-colors"
                               >
                                 <FileText className="w-5 h-5" />
@@ -531,8 +531,6 @@ export function StockPage() {
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-
-
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <button
                           onClick={() => handleDeleteLot(lot.id)}

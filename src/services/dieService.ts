@@ -151,3 +151,13 @@ export async function createWorkOrders(productionOrderId: number): Promise<void>
   // Backend tüm işi yapıyor: iş emirleri + operasyonlar + kalıp status
   await api.post(`/production-orders/${productionOrderId}/generate-work-orders`, {});
 }
+
+export async function uploadDieFiles(dieId: number, files: File[]) {
+  const form = new FormData();
+  // Backend'in beklediği alan adı: "files"
+  files.forEach((f) => form.append("files", f));
+
+  await api.post(`/dies/${dieId}/files`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+}

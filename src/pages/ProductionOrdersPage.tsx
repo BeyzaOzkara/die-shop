@@ -10,6 +10,8 @@ import {
 import { getDieTypes } from '../services/masterDataService';
 import type { ProductionOrder, WorkOrder, DieType } from '../types/database';
 import { mediaUrl } from "../lib/media";
+import { UploadDieFilesModal } from "../components/UploadDieFilesModal";
+import { uploadDieFiles } from "../services/dieService";
 import { OperationPlanningModal } from "../components/OperationPlanningModal";
 import { DateDisplay } from '../components/common/DateDisplay';
 
@@ -30,6 +32,26 @@ export function ProductionOrdersPage() {
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProductionOrder['status'] | 'All'>('All');
+
+  const [uploadModal, setUploadModal] = useState<{
+    isOpen: boolean;
+    dieId: number | null;
+    dieNumber?: string;
+  }>({ isOpen: false, dieId: null, dieNumber: undefined });
+
+  const openUpload = (dieId: number, dieNumber?: string) => {
+    setUploadModal({ isOpen: true, dieId, dieNumber });
+  };
+
+  const closeUpload = () => {
+    setUploadModal({ isOpen: false, dieId: null, dieNumber: undefined });
+  };
+
+  const refreshSelectedOrderFromList = (ordersData: ProductionOrder[], orderId?: number | null) => {
+    if (!orderId) return;
+    const updated = ordersData.find(o => o.id === orderId) || null;
+    if (updated) setSelectedOrder(updated);
+  };
 
   // Modal State
   const [planningModal, setPlanningModal] = useState<{ isOpen: boolean; orderId: number | null }>({
@@ -59,6 +81,10 @@ export function ProductionOrdersPage() {
       ]);
       setOrders(ordersData);
       setDieTypes(dieTypesData);
+      // selectedOrder varsa, yeni listeden taze veriyi çek
+      if (selectedOrder?.id) {
+        refreshSelectedOrderFromList(ordersData, selectedOrder.id);
+      }
     } catch (error) {
       console.error('Üretim emirleri yüklenemedi:', error);
     } finally {
@@ -307,7 +333,7 @@ export function ProductionOrdersPage() {
                   </span>
                 </div>
                 
-                {selectedOrder?.die?.files?.length ? (
+                {/* {selectedOrder?.die?.files?.length ? (
                   <div className="mb-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Kalıp Dosyaları</h3>
                     <div className="text-sm space-y-1">
@@ -334,7 +360,78 @@ export function ProductionOrdersPage() {
                     )}
                     </div>
                   </div>
-                ): null}
+                ): null} */}
+                                {/* Kalıp Dosyaları + Dosya Ekle (Seçenek 1) */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">Kalıp Dosyaları</h3>
+
+                    {(() => {
+                      const canUpload =
+                        selectedOrder.status === "InProgress" || selectedOrder.status === "Completed";
+                      const dieId = selectedOrder.die?.id;
+
+                      return (
+                        <button
+                          disabled={!canUpload || !dieId}
+                          onClick={() => {
+                            if (!dieId) return;
+                            openUpload(dieId, selectedOrder.die?.die_number);
+                          }}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                            ${canUpload && dieId
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            }`}
+                          title={
+                            !dieId
+                              ? "Kalıp bilgisi bulunamadı"
+                              : !canUpload
+                              ? "Dosya eklemek için önce üretim onayı verip planlamalısın."
+                              : "Kalıba dosya ekle"
+                          }
+                        >
+                          Dosya Ekle
+                        </button>
+                      );
+                    })()}
+                  </div>
+
+                  <p className="text-xs text-gray-500 mb-2">
+                    Yüklenen dosyalar kalıba eklenir ve aynı kalıbın diğer üretim emirlerinde de görünür.
+                  </p>
+
+                  {selectedOrder.die?.files?.length ? (
+                    <div className="text-sm space-y-1">
+                      {selectedOrder.die.files.map((f) => {
+                        const fileUrl = mediaUrl(f.storage_path);
+                        const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
+                        const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
+                        const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
+
+                        return (
+                          <a
+                            key={f.id}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                            title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
+                          >
+                            <Eye className="w-4 h-4" />
+                            {f.original_name}
+                            {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                      Henüz dosya yok.
+                    </div>
+                  )}
+                </div>
+
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -492,8 +589,39 @@ export function ProductionOrdersPage() {
           onClose={() => setPlanningModal({ isOpen: false, orderId: null })}
           onConfirm={handlePlanConfirm}
           loading={statusBusy}
+          // NEW: Planlama sonrası upload modal aç
+          onAfterConfirm={({ openUpload: wantUpload }) => {
+            if (!wantUpload) return;
+
+            const orderId = planningModal.orderId;
+            const po = orders.find(o => o.id === orderId) || selectedOrder;
+            const dieId = po?.die?.id;
+
+            if (!dieId) return;
+
+            openUpload(dieId, po?.die?.die_number);
+          }}
         />
       )}
+      {uploadModal.isOpen && uploadModal.dieId != null && (
+        <UploadDieFilesModal
+          isOpen={uploadModal.isOpen}
+          dieId={uploadModal.dieId}
+          dieNumber={uploadModal.dieNumber}
+          onClose={closeUpload}
+          uploadFn={uploadDieFiles}
+          onUploaded={async () => {
+            // ✅ die.files yenilensin
+            await loadOrders();
+
+            // Eğer aynı order seçiliyse workOrders da kalabilir; gerek yok ama istersen:
+            if (selectedOrder?.id) {
+              await loadWorkOrders(selectedOrder.id);
+            }
+          }}
+        />
+      )}
+
     </div>
   );
 }
