@@ -9,6 +9,7 @@ import {
   Clock,
   AlertCircle,
   Eye,
+  Download,
   Filter,
   X,
   ListTodo,
@@ -585,18 +586,40 @@ const closeSawCompleteModal = () => {
                               const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
 
                               return (
-                                <a
+                                <div
                                   key={f.id}
-                                  href={href}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                                  title={isDxf ? 'DXF Viewer ile aç' : 'Dosyayı indir/aç'}
+                                  className="flex items-center justify-between gap-2"
                                 >
-                                  <Eye className="w-4 h-4" />
-                                  {f.original_name}
-                                  {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
-                                </a>
+                                  <span className="truncate text-blue-600" title={f.original_name}>
+                                    {f.original_name}
+                                    {isDxf ? <span className="ml-1 text-xs text-gray-500">(DXF)</span> : null}
+                                  </span>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {/* 👁 Görüntüle */}
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 rounded hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+                                      title={isDxf ? 'DXF Viewer ile görüntüle' : 'Görüntüle'}
+                                      aria-label="Görüntüle"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </a>
+
+                                    {/* ⬇️ İndir (her zaman gerçek dosya) */}
+                                    <a
+                                      href={absoluteFileUrl}
+                                      download
+                                      className="p-1 rounded hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+                                      title="İndir"
+                                      aria-label="İndir"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </a>
+                                  </div>
+                                </div>
                               );
                             })}
                           </div>
