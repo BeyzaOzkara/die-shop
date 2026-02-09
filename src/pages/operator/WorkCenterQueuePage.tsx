@@ -677,7 +677,7 @@ const closeSawCompleteModal = () => {
                         <div className="min-w-0">
                           <h3 className="font-bold text-gray-900 truncate">{wc.name}</h3>
                           <p className="text-xs text-gray-500 mt-1">
-                            Atanmış iş: {ops.length} · InProgress: {activeCount} · Paused: {pausedCount}
+                            Atanmış iş: {ops.length} · Devam Eden: {activeCount} · Duraklatılmış: {pausedCount}
                           </p>
                         </div>
 
@@ -718,7 +718,7 @@ const closeSawCompleteModal = () => {
                                 </span>
                               </div>
 
-                              <div className="mt-3 text-xs text-gray-600 space-y-1">
+                              {/* <div className="mt-3 text-xs text-gray-600 space-y-1">
                                 <div className="flex justify-between gap-2">
                                   <span>Kalıp</span>
                                   <span className="font-medium text-gray-900">
@@ -731,7 +731,64 @@ const closeSawCompleteModal = () => {
                                     {op.work_order?.die_component?.component_type?.name ?? '—'}
                                   </span>
                                 </div>
+                              </div> */}
+                              <div className="mt-3 text-xs text-gray-600">
+                                <span className="font-medium text-gray-900">
+                                  Kalıp:{' '}
+                                  {op.work_order?.production_order?.die?.die_number ?? '—'}
+                                  {' '}
+                                  –{' '}
+                                  {op.work_order?.die_component?.component_type?.name ?? '—'}
+                                </span>
                               </div>
+                              {(op.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
+                                <div className="mt-3 pt-3 border-t border-gray-100">
+                                  <p className="text-xs text-gray-600 mb-2">Kalıp Dosyaları</p>
+
+                                  <div className="space-y-1 text-sm">
+                                    {(op.work_order?.production_order?.die?.files ?? []).map((f) => {
+                                      const fileUrl = mediaUrl(f.storage_path);
+                                      const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
+                                      const isDxf = (f.original_name ?? '').toLowerCase().endsWith('.dxf');
+                                      const viewHref = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
+
+                                      return (
+                                        <div key={f.id} className="flex items-center justify-between gap-2">
+                                          <span className="truncate text-blue-600" title={f.original_name}>
+                                            {f.original_name}
+                                            {isDxf ? <span className="ml-1 text-xs text-gray-500">(DXF)</span> : null}
+                                          </span>
+
+                                          <div className="flex items-center gap-2 shrink-0">
+                                            {/* 👁 Görüntüle */}
+                                            <a
+                                              href={viewHref}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="p-1 rounded hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+                                              title={isDxf ? 'DXF Viewer ile görüntüle' : 'Görüntüle'}
+                                              aria-label="Görüntüle"
+                                            >
+                                              <Eye className="w-4 h-4" />
+                                            </a>
+
+                                            {/* ⬇️ İndir */}
+                                            <a
+                                              href={absoluteFileUrl}
+                                              download
+                                              className="p-1 rounded hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+                                              title="İndir"
+                                              aria-label="İndir"
+                                            >
+                                              <Download className="w-4 h-4" />
+                                            </a>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
 
                               <div className="mt-4 flex flex-wrap gap-2">
                                 {(op.status === 'Waiting' || op.status === 'Paused') && (
