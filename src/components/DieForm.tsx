@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import type { ComponentType, SteelStockItem, DieType } from '../types/database';
+import type { ComponentType, SteelStockItem, DieType, Die, FileItem } from '../types/database';
 import { getActiveDieTypes, getComponentTypesForDieType } from '../services/masterDataService';
 import { getSteelStockItems } from '../services/stockService';
 import { calculateTheoreticalConsumption } from '../lib/calculations';
+import { deleteDieFile, uploadDieFiles } from '../services/dieService';
 
 interface SelectedComponent {
+  id?: number; // sadece edit modunda var, yeni eklenenlerde yok
   componentTypeId: string;
   stockItemId: string;
   packageLengthMm: number;
@@ -14,6 +16,8 @@ interface SelectedComponent {
 }
 
 interface DieFormProps {
+  mode: 'create' | 'edit';
+  initialData?: Die; // required when mode='edit'
   onSubmit: (data: {
     dieNumber: string;
     dieDiameterMm: number;
@@ -26,31 +30,36 @@ interface DieFormProps {
     figureCount?: number | null;
     customerName?: string;
     pressCode?: string;
-    
+
     isRevisioned: boolean;
-  }) => void;
+  }) => void | Promise<void>;
   onCancel: () => void;
 }
 
-export function DieForm({ onSubmit, onCancel }: DieFormProps) {
-  const [dieNumber, setDieNumber] = useState('');
-  const [dieDiameterMm, setDieDiameterMm] = useState('');
-  const [totalPackageLengthMm, setTotalPackageLengthMm] = useState('');
-  const [dieTypeId, setDieTypeId] = useState('');
+export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps) {
+  const [dieNumber, setDieNumber] = useState(initialData?.die_number || '');
+  const [dieDiameterMm, setDieDiameterMm] = useState(initialData?.die_diameter_mm?.toString() || '');
+  const [totalPackageLengthMm, setTotalPackageLengthMm] = useState(initialData?.total_package_length_mm?.toString() || '');
+  const [dieTypeId, setDieTypeId] = useState(initialData?.die_type_id?.toString() || '');
 
-  const [profileNo, setProfileNo] = useState('');
-  const [figureCount, setFigureCount] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [pressCode, setPressCode] = useState('');
+  const [profileNo, setProfileNo] = useState(initialData?.profile_no || '');
+  const [figureCount, setFigureCount] = useState(initialData?.figure_count?.toString() || '');
+  const [customerName, setCustomerName] = useState(initialData?.customer_name || '');
+  const [pressCode, setPressCode] = useState(initialData?.press_code || '');
 
-  const [isRevisioned, setIsRevisioned] = useState(false);
+  const [isRevisioned, setIsRevisioned] = useState(initialData?.is_revisioned || false);
   const [designFiles, setDesignFiles] = useState<File[]>([]);
+
+  // Existing files for edit mode
+  const [existingFiles, setExistingFiles] = useState<FileItem[]>(initialData?.files || []);
+  const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
 
   const [dieTypes, setDieTypes] = useState<DieType[]>([]);
   const [availableComponents, setAvailableComponents] = useState<ComponentType[]>([]);
   const [steelItems, setSteelItems] = useState<SteelStockItem[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<SelectedComponent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -71,7 +80,20 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
       ]);
       setDieTypes(dieTypesData);
       setSteelItems(steel);
-      if (dieTypesData.length > 0) {
+      // Initialize components from initialData if in edit mode
+      if (mode === 'edit' && initialData?.components) {
+        const mappedComponents: SelectedComponent[] = initialData.components.map(c => ({
+          id: c.id,
+          componentTypeId: String(c.component_type_id),
+          stockItemId: String(c.stock_item_id),
+          packageLengthMm: c.package_length_mm,
+          diameterMm: c.stock_item?.diameter_mm || 0,
+          theoreticalConsumptionKg: c.theoretical_consumption_kg,
+        }));
+        setSelectedComponents(mappedComponents);
+      }
+
+      if (!initialData && dieTypesData.length > 0) {
         setDieTypeId(String(dieTypesData[0].id));
       }
     } catch (error) {
@@ -87,7 +109,10 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
     try {
       const components = await getComponentTypesForDieType(dieTypeId);
       setAvailableComponents(components);
-      setSelectedComponents([]);
+      // Only clear components in create mode
+      if (mode === 'create') {
+        setSelectedComponents([]);
+      }
     } catch (error) {
       console.error('Bileşen tipleri yükleme hatası:', error);
     }
@@ -104,6 +129,43 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
         theoreticalConsumptionKg: 0,
       },
     ]);
+  };
+
+    const handleDeleteFile = async (fileId: number) => {
+    if (!confirm('Bu dosyayı silmek istediğinizden emin misiniz?')) return;
+    if (!initialData) return;
+
+    try {
+      setDeletingFileId(fileId);
+      await deleteDieFile(initialData.id, fileId);
+      setExistingFiles(existingFiles.filter(f => f.id !== fileId));
+    } catch (error) {
+      console.error('Dosya silme hatası:', error);
+      alert('Dosya silinemedi.');
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
+
+  const handleFileUpload = async (files: File[]) => {
+    if (!initialData || files.length === 0) {
+      setDesignFiles(files);
+      return;
+    }
+
+    // In edit mode, upload files immediately
+    try {
+      await uploadDieFiles(initialData.id, files);
+      // Reload die to get updated file list
+      const updatedDie = await import('../services/dieService').then(m => m.getDieById(initialData.id));
+      if (updatedDie) {
+        setExistingFiles(updatedDie.files || []);
+      }
+      alert('Dosyalar başarıyla yüklendi.');
+    } catch (error) {
+      console.error('Dosya yükleme hatası:', error);
+      alert('Dosya yüklenemedi.');
+    }
   };
 
   const removeComponent = (index: number) => {
@@ -142,21 +204,77 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
     setSelectedComponents(updated);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      dieNumber,
-      dieDiameterMm: Number(dieDiameterMm),
-      totalPackageLengthMm: Number(totalPackageLengthMm),
-      dieTypeId,
-      designFiles, // boş array olabilir
-      components: selectedComponents,
-      profileNo,
-      figureCount: figureCount ? Number(figureCount) : null,
-      customerName,
-      pressCode,
-      isRevisioned,
-    });
+    setSaving(true);
+
+    try {
+      if (mode === 'create') {
+        // Create mode: call onSubmit with all data
+        await onSubmit({
+          dieNumber,
+          dieDiameterMm: Number(dieDiameterMm),
+          totalPackageLengthMm: Number(totalPackageLengthMm),
+          dieTypeId,
+          designFiles,
+          components: selectedComponents,
+          profileNo,
+          figureCount: figureCount ? Number(figureCount) : null,
+          customerName,
+          pressCode,
+          isRevisioned,
+        });
+      } else {
+        // Edit mode: update die and components via API
+        if (!initialData) throw new Error('No initial data for edit mode');
+
+        const { updateDie, replaceDieComponents } = await import('../services/dieService');
+
+        // Update die fields
+        await updateDie(initialData.id, {
+          dieDiameterMm: Number(dieDiameterMm),
+          totalPackageLengthMm: Number(totalPackageLengthMm),
+          dieTypeId: Number(dieTypeId),
+          profileNo,
+          figureCount: figureCount ? Number(figureCount) : null,
+          customerName,
+          pressCode,
+          isRevisioned,
+        });
+
+        // Update components
+        await replaceDieComponents(
+          initialData.id,
+          selectedComponents.map(c => ({
+            id: c.id,
+            componentTypeId: Number(c.componentTypeId),
+            stockItemId: Number(c.stockItemId),
+            packageLengthMm: c.packageLengthMm,
+            theoreticalConsumptionKg: c.theoreticalConsumptionKg,
+          }))
+        );
+
+        // Call onSubmit to signal success (parent can handle refresh)
+        await onSubmit({
+          dieNumber,
+          dieDiameterMm: Number(dieDiameterMm),
+          totalPackageLengthMm: Number(totalPackageLengthMm),
+          dieTypeId,
+          designFiles,
+          components: selectedComponents,
+          profileNo,
+          figureCount: figureCount ? Number(figureCount) : null,
+          customerName,
+          pressCode,
+          isRevisioned,
+        });
+      }
+    } catch (error) {
+      console.error('Form submission error:', error);
+      alert(mode === 'create' ? 'Kalıp oluşturulamadı.' : 'Kalıp güncellenemedi.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const isValid =
@@ -199,7 +317,8 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               type="text"
               value={dieNumber}
               onChange={(e) => setDieNumber(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              readOnly={mode === 'edit'}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${mode === 'edit' ? 'bg-gray-50 cursor-not-allowed' : ''}`}
               required
             />
           </div>
@@ -319,16 +438,41 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tasarım Dosyaları (opsiyonel)
             </label>
+            {/* Existing files in edit mode */}
+            {mode === 'edit' && existingFiles.length > 0 && (
+              <div className="mb-3 space-y-2">
+                <p className="text-xs font-medium text-gray-600">Mevcut Dosyalar:</p>
+                {existingFiles.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
+                    <span className="text-sm text-gray-700">{file.original_name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFile(file.id)}
+                      disabled={deletingFileId === file.id}
+                      className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                      title="Dosyayı sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <input
               type="file"
               multiple
-              accept=".dxf,.pdf,.png,.jpg,.jpeg,.step,.stp"
               onChange={(e) => {
-                setDesignFiles(Array.from(e.target.files ?? []));
+                const files = Array.from(e.target.files ?? []);
+                if (mode === 'edit') {
+                  handleFileUpload(files);
+                  e.target.value = ''; // Clear input after upload
+                } else {
+                  setDesignFiles(files);
+                }
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            {designFiles.length > 0 && (
+            {mode === 'create' && designFiles.length > 0 && (
               <div className="mt-2 text-xs text-gray-600 space-y-1">
                 {designFiles.map((f) => (
                   <div key={f.name}>{f.name}</div>
@@ -336,7 +480,10 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
               </div>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              Dosya eklemek zorunlu değil. Birden fazla dosya seçebilirsiniz.
+              {mode === 'edit'
+                ? 'Yeni dosya seçtiğinizde hemen yüklenecektir.'
+                : 'Dosya eklemek zorunlu değil. Birden fazla dosya seçebilirsiniz.'
+              }
             </p>
           </div>
         </div>
@@ -477,16 +624,18 @@ export function DieForm({ onSubmit, onCancel }: DieFormProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          disabled={saving}
+          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
           İptal
         </button>
         <button
           type="submit"
-          disabled={!isValid}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          disabled={!isValid || saving}
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
         >
-          Kalıp Oluştur
+          {saving && <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+          {mode === 'edit' ? 'Değişiklikleri Kaydet' : 'Kalıp Oluştur'}
         </button>
       </div>
     </form>

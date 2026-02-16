@@ -138,6 +138,7 @@ export function DiesPage() {
           Yeni Kalıp Oluştur
         </h1>
         <DieForm
+          mode="create"
           onSubmit={handleCreateDie}
           onCancel={() => setShowForm(false)}
         />

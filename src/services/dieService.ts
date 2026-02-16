@@ -153,11 +153,72 @@ export async function createWorkOrders(productionOrderId: number): Promise<void>
 }
 
 export async function uploadDieFiles(dieId: number, files: File[]) {
-  const form = new FormData();
-  // Backend'in beklediği alan adı: "files"
+  const form = new FormData();  // Backend'in beklediği alan adı: "files"
   files.forEach((f) => form.append("files", f));
 
   await api.post(`/dies/${dieId}/files`, form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+}
+
+// =======================
+// Die Edit Operations
+// =======================
+
+export async function updateDie(
+  dieId: number,
+  updates: {
+    dieNumber?: string;
+    dieDiameterMm?: number;
+    totalPackageLengthMm?: number;
+    dieTypeId?: number;
+    profileNo?: string;
+    figureCount?: number | null;
+    customerName?: string;
+    pressCode?: string;
+    isRevisioned?: boolean;
+  }
+): Promise<Die> {
+  // Map camelCase to snake_case for API
+  const payload: Record<string, any> = {};
+
+  if (updates.dieNumber !== undefined) payload.die_number = updates.dieNumber;
+  if (updates.dieDiameterMm !== undefined) payload.die_diameter_mm = updates.dieDiameterMm;
+  if (updates.totalPackageLengthMm !== undefined) payload.total_package_length_mm = updates.totalPackageLengthMm;
+  if (updates.dieTypeId !== undefined) payload.die_type_id = updates.dieTypeId;
+  if (updates.profileNo !== undefined) payload.profile_no = updates.profileNo;
+  if (updates.figureCount !== undefined) payload.figure_count = updates.figureCount;
+  if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
+  if (updates.pressCode !== undefined) payload.press_code = updates.pressCode;
+  if (updates.isRevisioned !== undefined) payload.is_revisioned = updates.isRevisioned;
+
+  return api.patch<Die>(`/dies/${dieId}`, payload);
+}
+
+export async function replaceDieComponents(
+  dieId: number,
+  components: Array<{
+    id?: number; // existing component id, if editing
+    componentTypeId: number;
+    stockItemId: number;
+    packageLengthMm: number;
+    theoreticalConsumptionKg: number;
+  }>
+): Promise<DieComponent[]> {
+  // Map to backend format
+  const payload = {
+    components: components.map((c) => ({
+      id: c.id,
+      component_type_id: c.componentTypeId,
+      stock_item_id: c.stockItemId,
+      package_length_mm: c.packageLengthMm,
+      theoretical_consumption_kg: c.theoreticalConsumptionKg,
+    })),
+  };
+
+  return api.put<DieComponent[]>(`/dies/${dieId}/components`, payload);
+}
+
+export async function deleteDieFile(dieId: number, fileId: number): Promise<void> {
+  await api.del(`/dies/${dieId}/files/${fileId}`);
 }

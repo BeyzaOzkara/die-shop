@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Package, FileText, Settings, Calendar } from 'lucide-react';
+import { Package, FileText, Settings, Calendar, Pencil } from 'lucide-react';
 import type { Die } from '../types/database';
 import { getDieById } from '../services/dieService';
 import { DateDisplay } from './common/DateDisplay';
 import { mediaUrl } from "../lib/media";
+import { EditDieModal } from './EditDieModal';
 
 interface DieDetailProps {
     dieId: number;
@@ -16,6 +17,7 @@ const dxfViewerUrl = (fileUrl: string) => `${VIEWER_BASE}/?file=${encodeURICompo
 export function DieDetail({ dieId, onClose }: DieDetailProps) {
     const [die, setDie] = useState<Die | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     useEffect(() => {
         loadDie();
@@ -46,12 +48,22 @@ export function DieDetail({ dieId, onClose }: DieDetailProps) {
                         {die.customer_name} • {die.profile_no}
                     </p>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="text-gray-400 hover:text-gray-600"
-                >
-                    ✕
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        title="Kalıbı Düzenle"
+                    >
+                        <Pencil className="w-4 h-4" />
+                        Kalıbı Düzenle
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600 transition-colors px-2"
+                    >
+                        ✕
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
@@ -142,6 +154,16 @@ export function DieDetail({ dieId, onClose }: DieDetailProps) {
                 )}
 
             </div>
+
+            {/* Edit Modal */}
+            {die && (
+                <EditDieModal
+                    die={die}
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onSuccess={loadDie}
+                />
+            )}
         </div>
     );
 }
