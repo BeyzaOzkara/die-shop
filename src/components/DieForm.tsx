@@ -80,10 +80,11 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
       ]);
       setDieTypes(dieTypesData);
       setSteelItems(steel);
+       
       // Initialize components from initialData if in edit mode
-      if (mode === 'edit' && initialData?.components) {
+      if (initialData?.components) {
         const mappedComponents: SelectedComponent[] = initialData.components.map(c => ({
-          id: c.id,
+          id: mode === 'edit' ? c.id : undefined, // Keep ID only in edit mode
           componentTypeId: String(c.component_type_id),
           stockItemId: String(c.stock_item_id),
           packageLengthMm: c.package_length_mm,
@@ -110,7 +111,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
       const components = await getComponentTypesForDieType(dieTypeId);
       setAvailableComponents(components);
       // Only clear components in create mode
-      if (mode === 'create') {
+      if (mode === 'create' && !initialData) {
         setSelectedComponents([]);
       }
     } catch (error) {

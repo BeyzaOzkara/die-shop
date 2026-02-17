@@ -22,6 +22,8 @@ export function DiesPage() {
   const [dies, setDies] = useState<Die[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [selectedDie, setSelectedDie] = useState<Die | null>(null);
+  const [copyMode, setCopyMode] = useState(false);
+  const [initialDataForCopy, setInitialDataForCopy] = useState<Die | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Search & Filter
@@ -85,6 +87,27 @@ export function DiesPage() {
     }
   };
 
+  const handleCopyDie = (die: Die) => {
+    // Prepare die data for copying
+    const copyData: Die = {
+      ...die,
+      die_number: `${die.die_number}-KOPYA`,
+      is_revisioned: false,
+      files: [], // Do not copy files
+      // Transform components: remove IDs, keep only create-safe fields
+      components: die.components?.map(comp => ({
+        ...comp,
+        id: undefined as any, // Remove component ID
+        die_id: undefined as any, // Remove die_id reference
+      })),
+    };
+
+    setInitialDataForCopy(copyData);
+    setCopyMode(true);
+    setShowForm(true);
+    setSelectedDie(null); // Close detail view
+  };
+
   const getStatusColor = (status: Die['status']) => {
     const colors = {
       Draft: 'bg-gray-200 text-gray-800',
@@ -135,12 +158,17 @@ export function DiesPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">
-          Yeni Kalıp Oluştur
+          {copyMode ? 'Kalıp Kopyala' : 'Yeni Kalıp Oluştur'}
         </h1>
         <DieForm
           mode="create"
+          initialData={copyMode && initialDataForCopy ? initialDataForCopy : undefined}
           onSubmit={handleCreateDie}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => {
+            setShowForm(false);
+            setCopyMode(false);
+            setInitialDataForCopy(null);
+          }}
         />
       </div>
     );
@@ -284,6 +312,8 @@ export function DiesPage() {
             <DieDetail
               dieId={selectedDie.id}
               onClose={() => setSelectedDie(null)}
+              onDeleted={() => loadDies()}
+              onCopyRequested={handleCopyDie}
             />
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center h-full flex flex-col justify-center items-center">

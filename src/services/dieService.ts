@@ -222,3 +222,12 @@ export async function replaceDieComponents(
 export async function deleteDieFile(dieId: number, fileId: number): Promise<void> {
   await api.del(`/dies/${dieId}/files/${fileId}`);
 }
+
+/**
+ * Hard delete a die and all its dependencies.
+ * Requires all production orders to be in 'Waiting' status.
+ * Returns 409 if approved production orders exist.
+ */
+export async function deleteDie(dieId: number): Promise<void> {
+  await api.del(`/dies/${dieId}`);
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Package, FileText, Settings, Calendar, Pencil } from 'lucide-react';
+import { Package, FileText, Settings, Calendar, Pencil, CopyPlus, Trash2, AlertTriangle } from 'lucide-react';
 import type { Die } from '../types/database';
-import { getDieById } from '../services/dieService';
+import { getDieById, deleteDie } from '../services/dieService';
 import { DateDisplay } from './common/DateDisplay';
 import { mediaUrl } from "../lib/media";
 import { EditDieModal } from './EditDieModal';
@@ -9,17 +9,22 @@ import { EditDieModal } from './EditDieModal';
 interface DieDetailProps {
     dieId: number;
     onClose: () => void;
+    onDeleted?: () => void;
+    onCopyRequested?: (die: Die) => void;
 }
 
 const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "/dxf-viewer";
 const dxfViewerUrl = (fileUrl: string) => `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
 
-export function DieDetail({ dieId, onClose }: DieDetailProps) {
+export function DieDetail({ dieId, onClose, onDeleted, onCopyRequested }: DieDetailProps) {
     const [die, setDie] = useState<Die | null>(null);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
-    useEffect(() => {
+    useEffect(() => { 
         loadDie();
     }, [dieId]);
 
@@ -32,6 +37,34 @@ export function DieDetail({ dieId, onClose }: DieDetailProps) {
             console.error('Kalıp detayları yüklenemedi:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (deleteConfirmText !== 'SİL') {
+            return;
+        }
+
+        try {
+            setIsDeleting(true);
+            await deleteDie(dieId);
+            // Success
+            alert('Kalıp başarıyla silindi.');
+            setIsDeleteModalOpen(false);
+            onDeleted?.(); 
+            onClose(); // Close detail view
+        } catch (error: any) {
+            if (error.response?.status === 409) {
+                // Production orders exist that are not in 'Waiting' status
+                alert('Bu kalıp silinemez: Onaylı üretim emri var.');
+            } else if (error.response?.status === 404) {
+                alert('Kalıp bulunamadı.');
+            } else {
+                alert('Silme işlemi başarısız oldu.');
+            }
+        } finally {
+            setIsDeleting(false);
+            setDeleteConfirmText('');
         }
     };
 
@@ -55,7 +88,20 @@ export function DieDetail({ dieId, onClose }: DieDetailProps) {
                         title="Kalıbı Düzenle"
                     >
                         <Pencil className="w-4 h-4" />
-                        Kalıbı Düzenle
+                    </button>
+                    <button
+                        onClick={() => onCopyRequested?.(die)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        title="Kalıbı Kopyala"
+                    >
+                        <CopyPlus className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setIsDeleteModalOpen(true)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                        title="Kalıbı Sil"
+                    >
+                        <Trash2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={onClose}
@@ -163,6 +209,61 @@ export function DieDetail({ dieId, onClose }: DieDetailProps) {
                     onClose={() => setIsEditModalOpen(false)}
                     onSuccess={loadDie}
                 />
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {isDeleteModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        {/* Header */}
+                        <div className="flex items-center gap-3 mb-4">
+                            <AlertTriangle className="w-6 h-6 text-red-600" />
+                            <h2 className="text-xl font-bold text-gray-900">Kalıp silinsin mi?</h2>
+                        </div>
+
+                        {/* Warning Text */}
+                        <div className="mb-6">
+                            <p className="text-gray-700 mb-4">
+                                Bu işlem geri alınamaz. Kalıp, bileşenleri ve onaysız üretim emirleri silinecek.
+                            </p>
+                            <p className="text-sm text-gray-600 font-medium mb-2">
+                                Silmek için "<span className="font-bold text-red-600">SİL</span>" yazın:
+                            </p>
+                            <input
+                                type="text"
+                                value={deleteConfirmText}
+                                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                                placeholder="SİL"
+                                disabled={isDeleting}
+                            />
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => {
+                                    setIsDeleteModalOpen(false);
+                                    setDeleteConfirmText('');
+                                }}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                                disabled={isDeleting}
+                            >
+                                Vazgeç
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleteConfirmText !== 'SİL' || isDeleting}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {isDeleting && (
+                                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                )}
+                                Sil
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
