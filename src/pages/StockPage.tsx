@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, Plus, FileText, Trash2 } from 'lucide-react';
+import { Package, Plus, FileText, Trash2, Pencil } from 'lucide-react';
 import {
   getSteelStockItems,
   createSteelStockItem,
@@ -7,6 +7,7 @@ import {
   createLot,
   getStockMovements, // 🔹 buraya taşındı
   deleteLot,
+  updateLot,
 } from '../services/stockService';
 import type { SteelStockItem, Lot, StockMovement } from '../types/database';
 import { mediaUrl } from "../lib/media";
@@ -38,6 +39,59 @@ export function StockPage() {
 
   // yeni: sertifika dosyaları (çoklu destek)
   const [lotCertificateFiles, setLotCertificateFiles] = useState<File[]>([]);
+
+  const [editingLot, setEditingLot] = useState<Lot | null>(null);
+  const [editLotForm, setEditLotForm] = useState({
+    stock_item_id: '',
+    certificate_number: '',
+    supplier: '',
+    length_mm: '',
+    gross_weight_kg: '',
+    remaining_kg: '',
+    received_date: '',
+  });
+
+  const openEditLot = (lot: Lot) => {
+    setEditingLot(lot);
+    setEditLotForm({
+      stock_item_id: String(lot.stock_item_id ?? lot.stock_item?.id ?? ''),
+      certificate_number: lot.certificate_number ?? '',
+      supplier: lot.supplier ?? '',
+      length_mm: String(lot.length_mm ?? ''),
+      gross_weight_kg: String(lot.gross_weight_kg ?? ''),
+      remaining_kg: String(lot.remaining_kg ?? ''),
+      received_date: new Date(lot.received_date).toISOString().split('T')[0],
+    });
+  };
+
+  const handleUpdateLot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLot) return;
+
+    try {
+      await updateLot(editingLot.id, {
+        stock_item_id: Number(editLotForm.stock_item_id),
+        certificate_number: editLotForm.certificate_number,
+        supplier: editLotForm.supplier,
+        length_mm: Number(editLotForm.length_mm),
+        gross_weight_kg: Number(editLotForm.gross_weight_kg),
+        remaining_kg: Number(editLotForm.remaining_kg),
+        received_date: editLotForm.received_date,
+      });
+
+      setEditingLot(null);
+      loadData();
+    } catch (error: any) {
+      console.error('Lot güncellenemedi:', error);
+
+      const msg =
+        error?.response?.status === 409
+          ? error?.response?.data?.detail || 'Bu lot bazı alanlarda güncellenemez.'
+          : 'Lot güncellenirken bir hata oluştu.';
+
+      alert(msg);
+    }
+  };
 
   const handleDeleteLot = async (lotId: number) => {
     const ok = window.confirm('Bu lotu silmek istediğine emin misin?');
@@ -309,6 +363,140 @@ export function StockPage() {
             </button>
           </div>
 
+          {/* ✅ LOT DÜZENLE MODAL */}
+        {editingLot && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Lot Düzenle — {editingLot.certificate_number}
+                </h3>
+                <button
+                  onClick={() => setEditingLot(null)}
+                  className="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                >
+                  Kapat
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateLot}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Çelik Ürün *</label>
+                    <select
+                      value={editLotForm.stock_item_id}
+                      onChange={(e) =>
+                        setEditLotForm({ ...editLotForm, stock_item_id: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">Seçiniz</option>
+                      {stockItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.alloy} - Ø{item.diameter_mm}mm
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika No *</label>
+                    <input
+                      type="text"
+                      value={editLotForm.certificate_number}
+                      onChange={(e) =>
+                        setEditLotForm({ ...editLotForm, certificate_number: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tedarikçi *</label>
+                    <input
+                      type="text"
+                      value={editLotForm.supplier}
+                      onChange={(e) => setEditLotForm({ ...editLotForm, supplier: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Uzunluk (mm) *</label>
+                    <input
+                      type="number"
+                      value={editLotForm.length_mm}
+                      onChange={(e) => setEditLotForm({ ...editLotForm, length_mm: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Brüt Ağırlık (kg) *</label>
+                    <input
+                      type="number"
+                      value={editLotForm.gross_weight_kg}
+                      onChange={(e) =>
+                        setEditLotForm({ ...editLotForm, gross_weight_kg: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Kalan (kg) *</label>
+                    <input
+                      type="number"
+                      value={editLotForm.remaining_kg}
+                      onChange={(e) =>
+                        setEditLotForm({ ...editLotForm, remaining_kg: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Giriş Tarihi *</label>
+                    <input
+                      type="date"
+                      value={editLotForm.received_date}
+                      onChange={(e) =>
+                        setEditLotForm({ ...editLotForm, received_date: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setEditingLot(null)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Kaydet
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
           {showLotForm && (
             <form
               onSubmit={handleCreateLot}
@@ -532,6 +720,14 @@ export function StockPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <button
+                          onClick={() => openEditLot(lot)}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                          title="Lotu Düzenle"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Düzenle
+                        </button>
                         <button
                           onClick={() => handleDeleteLot(lot.id)}
                           className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"

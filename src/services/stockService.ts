@@ -43,9 +43,6 @@ export async function createLot(payload: {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 }
-// }): Promise<Lot> {
-//   return api.post<Lot>('/inventory/lots', payload);
-// }
 
 // Belirli stok item için kalan lotlar
 export async function getAvailableLots(
@@ -74,3 +71,18 @@ export async function deleteLot(lotId: number | string): Promise<void> {
   await api.del(`/inventory/lots/${lotId}`);
 }
 
+export async function updateLot(
+  lotId: number | string,
+  payload: Partial<{
+    stock_item_id: number;
+    certificate_number: string;
+    supplier: string;
+    length_mm: number;
+    gross_weight_kg: number;
+    remaining_kg: number;
+    received_date: string; // YYYY-MM-DD
+    certificate_file_url?: string;
+  }>
+): Promise<Lot> {
+  return api.patch<Lot>(`/inventory/lots/${lotId}`, payload);
+}

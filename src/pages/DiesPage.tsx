@@ -122,7 +122,7 @@ export function DiesPage() {
   const getStatusText = (status: Die['status']) => {
     const texts: Record<Die['status'], string> = {
       Draft: 'Taslak',
-      Waiting: 'Üretim Emri Onayı Bekleniyor',
+      Waiting: 'Ü.E. Onayı Bekleniyor',
       Ready: 'Hazır',
       InProduction: 'Üretimde',
       Completed: 'Tamamlandı',
