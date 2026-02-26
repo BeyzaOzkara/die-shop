@@ -16,8 +16,19 @@ export async function createSteelStockItem(payload: {
 }
 
 // Lotlar
-export async function getLots(): Promise<Lot[]> {
-  return api.get<Lot[]>('/inventory/lots');
+// export async function getLots(): Promise<Lot[]> {
+//   return api.get<Lot[]>('/inventory/lots');
+// }
+export async function getLots(filters?: {
+  alloy?: string;
+  diameter_mm?: number;
+  supplier?: string;
+  certificate_number?: string;
+  only_with_remaining?: boolean;
+  received_from?: string; // YYYY-MM-DD veya ISO
+  received_to?: string;   // YYYY-MM-DD veya ISO
+}): Promise<Lot[]> {
+  return api.get<Lot[]>('/inventory/lots', filters ?? {});
 }
 
 export async function createLot(payload: {

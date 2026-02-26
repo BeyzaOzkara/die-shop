@@ -21,6 +21,14 @@ export function StockPage() {
   const [showLotForm, setShowLotForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [lotFilters, setLotFilters] = useState({
+    alloy: '',
+    diameter_mm: '',
+    supplier: '',
+    certificate_number: '',
+    only_with_remaining: false,
+  });
+
   const [newItem, setNewItem] = useState({
     alloy: '',
     diameter_mm: '',
@@ -39,6 +47,19 @@ export function StockPage() {
 
   // yeni: sertifika dosyaları (çoklu destek)
   const [lotCertificateFiles, setLotCertificateFiles] = useState<File[]>([]);
+
+  const loadLots = async () => {
+    const params: any = {
+      alloy: lotFilters.alloy || undefined,
+      supplier: lotFilters.supplier || undefined,
+      certificate_number: lotFilters.certificate_number || undefined,
+      only_with_remaining: lotFilters.only_with_remaining || undefined,
+      diameter_mm: lotFilters.diameter_mm ? Number(lotFilters.diameter_mm) : undefined,
+    };
+
+    const lotsData = await getLots(params);
+    setLots(lotsData);
+  };
 
   const [editingLot, setEditingLot] = useState<Lot | null>(null);
   const [editLotForm, setEditLotForm] = useState({
@@ -127,8 +148,9 @@ export function StockPage() {
       setStockItems(items);
 
       if (activeTab === 'lots') {
-        const lotsData = await getLots();
-        setLots(lotsData);
+        // const lotsData = await getLots();
+        // setLots(lotsData);
+        await loadLots();
       } else if (activeTab === 'movements') {
         const movementsData = await getStockMovements();
         setMovements(movementsData);
@@ -353,14 +375,98 @@ export function StockPage() {
       {/* LOTLAR */}
       {activeTab === 'lots' && (
         <div>
-          <div className="flex justify-end mb-6">
-            <button
-              onClick={() => setShowLotForm(!showLotForm)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Yeni Lot
-            </button>
+          <div className="flex flex-col gap-3 mb-6">
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowLotForm(!showLotForm)}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Yeni Lot
+              </button>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Alaşım</label>
+                  <input
+                    value={lotFilters.alloy}
+                    onChange={(e) => setLotFilters({ ...lotFilters, alloy: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="örn. 6063"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Çap (mm)</label>
+                  <input
+                    type="number"
+                    value={lotFilters.diameter_mm}
+                    onChange={(e) => setLotFilters({ ...lotFilters, diameter_mm: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="örn. 178"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tedarikçi</label>
+                  <input
+                    value={lotFilters.supplier}
+                    onChange={(e) => setLotFilters({ ...lotFilters, supplier: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="örn. Erdemir"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Sertifika No</label>
+                  <input
+                    value={lotFilters.certificate_number}
+                    onChange={(e) => setLotFilters({ ...lotFilters, certificate_number: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="örn. CERT-2026..."
+                  />
+                </div>
+
+                <div className="flex items-end gap-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={lotFilters.only_with_remaining}
+                      onChange={(e) => setLotFilters({ ...lotFilters, only_with_remaining: e.target.checked })}
+                    />
+                    Sadece kalan &gt; 0
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={loadLots}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Ara
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLotFilters({
+                      alloy: '',
+                      diameter_mm: '',
+                      supplier: '',
+                      certificate_number: '',
+                      only_with_remaining: false,
+                    });
+                    // reset sonrası tüm lotları yükle
+                    setTimeout(() => loadLots(), 0);
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Temizle
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* ✅ LOT DÜZENLE MODAL */}
