@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Settings, Play, Check, Eye } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Settings, Play, Check, Eye, Search, X } from 'lucide-react';
 import {
   getWorkOrders,
   getWorkOrderOperations,
@@ -25,6 +25,7 @@ export function WorkOrdersPage() {
   const [actualConsumption, setActualConsumption] = useState('');
   const [selectedLot, setSelectedLot] = useState('');
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     loadWorkOrders();
@@ -140,9 +141,21 @@ export function WorkOrdersPage() {
   const getStatusColor = (status: UiStatus) => STATUS_COLORS[status] ?? STATUS_COLORS.Waiting;
   const getStatusText = (status: UiStatus) => STATUS_TEXT[status] ?? String(status);
 
-  // const opTitle = (op: WorkOrderOperation) =>
-  //   op.operation_type?.name ??
-  //   (op.operation_type_id ? `OperationType#${op.operation_type_id}` : `Operation#${op.id}`);
+  const filteredWorkOrders = useMemo(() => {
+    const q = searchText.toLowerCase().trim();
+    if (!q) return workOrders;
+    return workOrders.filter((wo) => {
+      const haystack = [
+        wo.order_number,
+        wo.production_order?.die?.die_number ?? '',
+        wo.die_component?.component_type?.name ?? '',
+        STATUS_TEXT[wo.status] ?? wo.status,
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [workOrders, searchText]);
+
+
   const opTitle = (op: WorkOrderOperation) => {
     const name = (op.operation_name ?? '').trim();
     return (
@@ -151,6 +164,7 @@ export function WorkOrdersPage() {
       (op.operation_type_id ? `OperationType#${op.operation_type_id}` : `Operation#${op.id}`)
     );
   };
+
 
   const getCurrentOperationText = (ops: WorkOrderOperation[]) => {
     if (ops.length === 0) {
@@ -199,35 +213,67 @@ export function WorkOrdersPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sol: İş Emirleri listesi */}
-          <div className="lg:col-span-1 space-y-4">
-            {workOrders.map((wo) => (
-              <div
-                key={wo.id}
-                onClick={() => setSelectedWorkOrder(wo)}
-                className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${
-                  selectedWorkOrder?.id === wo.id
+          <div className="lg:col-span-1 space-y-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Ara: iş emri, kalıp, bileşen..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              />
+              {searchText && (
+                <button
+                  onClick={() => setSearchText('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Count */}
+            {searchText && (
+              <p className="text-xs text-gray-500 px-1">
+                {filteredWorkOrders.length} / {workOrders.length} iş emri
+              </p>
+            )}
+
+            {filteredWorkOrders.length === 0 ? (
+              <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+                <p className="text-sm text-gray-500">Sonuç bulunamadı.</p>
+              </div>
+            ) : (
+              filteredWorkOrders.map((wo) => (
+                <div
+                  key={wo.id}
+                  onClick={() => setSelectedWorkOrder(wo)}
+                  className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${selectedWorkOrder?.id === wo.id
                     ? 'border-blue-500 shadow-md'
                     : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="mb-2">
-                  <h3 className="font-semibold text-gray-900">{wo.order_number}</h3>
-                  <p className="text-sm text-gray-600">
-                    {wo.die_component?.component_type?.name}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {wo.production_order?.die?.die_number}
-                  </p>
-                </div>
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                    wo.status
-                  )}`}
+                    }`}
                 >
-                  {getStatusText(wo.status)}
-                </span>
-              </div>
-            ))}
+                  <div className="mb-2">
+                    <h3 className="font-semibold text-gray-900">{wo.order_number}</h3>
+                    <p className="text-sm text-gray-600">
+                      {wo.die_component?.component_type?.name}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {wo.production_order?.die?.die_number}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                      wo.status
+                    )}`}
+                  >
+                    {getStatusText(wo.status)}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Sağ: Detay & Operasyonlar */}
@@ -278,8 +324,9 @@ export function WorkOrdersPage() {
                             {f.original_name}
                             {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
                           </a>
-                        ); }
-                    )}
+                        );
+                      }
+                      )}
                     </div>
                   </div>
                 ) : null}
@@ -346,6 +393,7 @@ export function WorkOrdersPage() {
                                   {op.sequence_number}
                                 </span>
                                 <h4 className="font-medium text-gray-900">
+                                  {/* {op.operation_name} */}
                                   {opTitle(op)}
                                 </h4>
                               </div>
@@ -376,7 +424,7 @@ export function WorkOrdersPage() {
                                   );
                                   handleOperationStatusChange(
                                     String(op.id),
-                                    'InProgress', 
+                                    'InProgress',
                                     operator || undefined
                                   );
                                 }}
