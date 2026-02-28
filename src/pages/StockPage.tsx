@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Package, Plus, FileText, Trash2, Pencil, Truck, X, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Package, Plus, FileText, Trash2, Truck, X, ChevronUp, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react';
 import {
   getSteelStockItems,
   createSteelStockItem,
   getLots,
   createLot,
-  getStockMovements, // 🔹 buraya taşındı
+  getStockMovements,
   deleteLot,
-  updateLot,
 } from '../services/stockService';
 import {
   getSuppliers,
@@ -30,6 +29,44 @@ const EMPTY_SUPPLIER_FORM: SupplierCreatePayload = {
   notes: '',
 };
 
+// --------------------------------------------
+// Lot sort key type
+// --------------------------------------------
+type LotSortKey =
+  | 'certificate_number'
+  | 'product'
+  | 'supplier'
+  | 'gross_weight_kg'
+  | 'remaining_kg'
+  | 'received_date';
+
+type SortDir = 'asc' | 'desc';
+
+// --------------------------------------------
+// Default filter state
+// --------------------------------------------
+const DEFAULT_LOT_FILTERS = {
+  text: '',
+  stockItemId: '',
+  supplierId: '',
+  grossMin: '',
+  grossMax: '',
+  remainingMin: '',
+  remainingMax: '',
+  dateFrom: '',
+  dateTo: '',
+};
+
+// --------------------------------------------
+// Sort indicator component
+// --------------------------------------------
+function SortIcon({ col, sortKey, sortDir }: { col: LotSortKey; sortKey: LotSortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 opacity-30 inline" />;
+  return sortDir === 'asc'
+    ? <ChevronUp className="w-3.5 h-3.5 ml-1 text-blue-600 inline" />
+    : <ChevronDown className="w-3.5 h-3.5 ml-1 text-blue-600 inline" />;
+}
+
 export function StockPage() {
   const [activeTab, setActiveTab] = useState<'items' | 'lots' | 'movements'>('items');
   const [stockItems, setStockItems] = useState<SteelStockItem[]>([]);
@@ -38,26 +75,8 @@ export function StockPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [showItemForm, setShowItemForm] = useState(false);
   const [showLotForm, setShowLotForm] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const [lotFilters, setLotFilters] = useState({
-    alloy: '',
-    diameter_mm: '',
-    supplier: '',
-    certificate_number: '',
-    only_with_remaining: false,
-  });
-
-  const lotTotals = useMemo(() => {
-    const totalGross = lots.reduce((sum, lot) => sum + Number(lot.gross_weight_kg || 0), 0);
-    const totalRemaining = lots.reduce((sum, lot) => sum + Number(lot.remaining_kg || 0), 0);
-
-    return {
-      totalGross,
-      totalRemaining,
-      count: lots.length,
-    };
-  }, [lots]);
 
   // ---- New Stock Item ----
   const [newItem, setNewItem] = useState({
@@ -70,14 +89,12 @@ export function StockPage() {
   const [newLot, setNewLot] = useState({
     stock_item_id: '',
     certificate_number: '',
-    // supplier: '',
     supplier_id: '',   // FK-based selection
     length_mm: '',
     gross_weight_kg: '',
     received_date: new Date().toISOString().split('T')[0],
   });
 
-  // yeni: sertifika dosyaları (çoklu destek)
   const [lotCertificateFiles, setLotCertificateFiles] = useState<File[]>([]);
 
   // ---- Quick-create supplier modal ----
@@ -86,95 +103,27 @@ export function StockPage() {
   const [quickSubmitting, setQuickSubmitting] = useState(false);
   const [quickError, setQuickError] = useState('');
 
-  // ---- Edit Lot ----
-  const [editingLot, setEditingLot] = useState<Lot | null>(null);
-  const [editLotForm, setEditLotForm] = useState({
-    stock_item_id: '',
-    certificate_number: '',
-    supplier_id: '',
-    length_mm: '',
-    gross_weight_kg: '',
-    remaining_kg: '',
-    received_date: '',
-  });
+  // ---- Lot filters ----
+  const [lotFilters, setLotFilters] = useState(DEFAULT_LOT_FILTERS);
 
-  const loadLots = async () => {
-    const params: any = {
-      alloy: lotFilters.alloy || undefined,
-      supplier: lotFilters.supplier || undefined,
-      certificate_number: lotFilters.certificate_number || undefined,
-      only_with_remaining: lotFilters.only_with_remaining || undefined,
-      diameter_mm: lotFilters.diameter_mm ? Number(lotFilters.diameter_mm) : undefined,
-    };
+  // ---- Lot sort ----
+  const [sortKey, setSortKey] = useState<LotSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
-    const lotsData = await getLots(params);
-    setLots(lotsData);
-  };
-
-
-  const openEditLot = (lot: Lot) => {
-    setEditingLot(lot);
-    setEditLotForm({
-      stock_item_id: String(lot.stock_item_id ?? lot.stock_item?.id ?? ''),
-      certificate_number: lot.certificate_number ?? '',
-      supplier_id: String(lot.supplier_id ?? lot.supplier_ref?.id ?? ''), //lot.supplier ?? '',
-      length_mm: String(lot.length_mm ?? ''),
-      gross_weight_kg: String(lot.gross_weight_kg ?? ''),
-      remaining_kg: String(lot.remaining_kg ?? ''),
-      received_date: new Date(lot.received_date).toISOString().split('T')[0],
-    });
-  };
-
-  const handleUpdateLot = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingLot) return;
-
-    try {
-      const selectedSupplierId = editLotForm.supplier_id ? Number(editLotForm.supplier_id) : undefined;
-      const selectedSupplier = selectedSupplierId
-        ? suppliers.find((s) => s.id === selectedSupplierId)
-        : undefined;
-      await updateLot(editingLot.id, {
-        stock_item_id: Number(editLotForm.stock_item_id),
-        certificate_number: editLotForm.certificate_number,
-        supplier_id: selectedSupplierId,              // ✅ NEW
-        supplier: selectedSupplier?.name ?? '',       // ✅ backward compat
-        length_mm: Number(editLotForm.length_mm),
-        gross_weight_kg: Number(editLotForm.gross_weight_kg),
-        remaining_kg: Number(editLotForm.remaining_kg),
-        received_date: editLotForm.received_date,
-      });
-
-      setEditingLot(null);
-      loadData();
-    } catch (error: any) {
-      console.error('Lot güncellenemedi:', error);
-
-      const msg =
-        error?.response?.status === 409
-          ? error?.response?.data?.detail || 'Bu lot bazı alanlarda güncellenemez.'
-          : 'Lot güncellenirken bir hata oluştu.';
-
-      alert(msg);
-    }
-  };
-
-
-  const loadData = async () => {
+  // ---- Load ----
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-
-      // Çelik ürünler her tabda lazım (lot formunda dropdown için)
-      const items = await getSteelStockItems();
+      const [items, activeSuppliers, lotsData] = await Promise.all([
+        getSteelStockItems(),
+        getSuppliers({ active: true }),
+        getLots(), // always fetch lots (needed for per-item totals on items tab)
+      ]);
       setStockItems(items);
-      
-      // Always fetch active suppliers (needed for lot form dropdown)
-      const activeSuppliers = await getSuppliers({ active: true });
       setSuppliers(activeSuppliers);
+      setLots(lotsData);
 
-      if (activeTab === 'lots') {
-        await loadLots();
-      } else if (activeTab === 'movements') {
+      if (activeTab === 'movements') {
         const movementsData = await getStockMovements();
         setMovements(movementsData);
       }
@@ -183,28 +132,42 @@ export function StockPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [loadData]);
 
+  // ---- Sort handler ----
+  const handleSort = useCallback((key: LotSortKey) => {
+    setSortKey((prev) => {
+      if (prev !== key) {
+        setSortDir('asc');
+        return key;
+      } else if (sortDir === 'asc') {
+        setSortDir('desc');
+        return key;
+      } else {
+        // desc → clear
+        setSortDir('asc');
+        return null;
+      }
+    });
+  }, [sortDir]);
+
+  // ---- Handlers ----
   const handleDeleteLot = async (lotId: number) => {
     const ok = window.confirm('Bu lotu silmek istediğine emin misin?');
     if (!ok) return;
-
     try {
       await deleteLot(lotId);
       loadData();
     } catch (error: any) {
       console.error('Lot silinemedi:', error);
-
-      // Backend 409 gönderiyorsa kullanıcıya düzgün mesaj
       const msg =
         error?.response?.status === 409
           ? error?.response?.data?.detail || 'Bu lot kullanıldığı için silinemez.'
           : 'Lot silinirken bir hata oluştu.';
-
       alert(msg);
     }
   };
@@ -234,25 +197,25 @@ export function StockPage() {
       const selectedSupplier = selectedSupplierId
         ? suppliers.find((s) => s.id === selectedSupplierId)
         : undefined;
-      await createLot({
-        stock_item_id: Number(newLot.stock_item_id),
-        certificate_number: newLot.certificate_number,
-        // supplier: newLot.supplier,
-        // Keep supplier name string for backward compat; backend also resolves from supplier_id
-        supplier: selectedSupplier?.name ?? '',
-        supplier_id: selectedSupplierId,
-        length_mm: Number(newLot.length_mm),
-        gross_weight_kg: grossWeight,
-        remaining_kg: grossWeight,
-        received_date: newLot.received_date,
-      }, 
-      lotCertificateFiles,
-    );
+
+      await createLot(
+        {
+          stock_item_id: Number(newLot.stock_item_id),
+          certificate_number: newLot.certificate_number,
+          // Keep supplier name string for backward compat; backend also resolves from supplier_id
+          supplier: selectedSupplier?.name ?? '',
+          supplier_id: selectedSupplierId,
+          length_mm: Number(newLot.length_mm),
+          gross_weight_kg: grossWeight,
+          remaining_kg: grossWeight,
+          received_date: newLot.received_date,
+        },
+        lotCertificateFiles,
+      );
 
       setNewLot({
         stock_item_id: '',
         certificate_number: '',
-        // supplier: '',
         supplier_id: '',
         length_mm: '',
         gross_weight_kg: '',
@@ -267,7 +230,6 @@ export function StockPage() {
     }
   };
 
-  
   // ---- Quick-create supplier ----
   const handleQuickSupplierCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -293,14 +255,8 @@ export function StockPage() {
       const updated = await getSuppliers({ active: true });
       setSuppliers(updated);
 
-      // if edit modal is open, select supplier there; else select in create form
-      if (editingLot) {
-        setEditLotForm((prev) => ({ ...prev, supplier_id: String(created.id) }));
-      } else {
-        setNewLot((prev) => ({ ...prev, supplier_id: String(created.id) }));
-      }
       // Auto-select the newly created supplier
-      // setNewLot((prev) => ({ ...prev, supplier_id: String(created.id) }));
+      setNewLot((prev) => ({ ...prev, supplier_id: String(created.id) }));
       setShowQuickSupplier(false);
       setQuickForm(EMPTY_SUPPLIER_FORM);
     } catch (err: any) {
@@ -312,6 +268,135 @@ export function StockPage() {
     }
   };
 
+  // ---- Reset filters ----
+  const handleResetFilters = useCallback(() => {
+    setLotFilters(DEFAULT_LOT_FILTERS);
+    setSortKey(null);
+    setSortDir('asc');
+  }, []);
+
+  // ========================================================
+  // MEMOS
+  // ========================================================
+
+  // Filtered lots
+  const filteredLots = useMemo(() => {
+    const {
+      text, stockItemId, supplierId,
+      grossMin, grossMax, remainingMin, remainingMax,
+      dateFrom, dateTo,
+    } = lotFilters;
+
+    const lowerText = text.toLowerCase().trim();
+
+    return lots.filter((lot) => {
+      // Free text: certificate_number, alloy, diameter
+      if (lowerText) {
+        const haystack = [
+          lot.certificate_number,
+          lot.stock_item?.alloy ?? '',
+          lot.stock_item ? `${lot.stock_item.diameter_mm}` : '',
+          lot.stock_item ? `ø${lot.stock_item.diameter_mm}` : '',
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(lowerText)) return false;
+      }
+
+      // Çelik Ürün
+      if (stockItemId && String(lot.stock_item_id) !== stockItemId) return false;
+
+      // Tedarikçi: prefer FK, fallback to legacy string match
+      if (supplierId) {
+        if (lot.supplier_id != null) {
+          if (String(lot.supplier_id) !== supplierId) return false;
+        } else {
+          // Legacy: find supplier by id and compare name
+          const sup = suppliers.find((s) => String(s.id) === supplierId);
+          if (!sup) return false;
+          if (!lot.supplier?.toLowerCase().includes(sup.name.toLowerCase())) return false;
+        }
+      }
+
+      // Brüt ağırlık range
+      const gross = Number(lot.gross_weight_kg);
+      if (grossMin !== '' && gross < Number(grossMin)) return false;
+      if (grossMax !== '' && gross > Number(grossMax)) return false;
+
+      // Kalan range
+      const remaining = Number(lot.remaining_kg);
+      if (remainingMin !== '' && remaining < Number(remainingMin)) return false;
+      if (remainingMax !== '' && remaining > Number(remainingMax)) return false;
+
+      // Date range
+      if (dateFrom && lot.received_date < dateFrom) return false;
+      if (dateTo && lot.received_date > dateTo) return false;
+
+      return true;
+    });
+  }, [lots, lotFilters, suppliers]);
+
+  // Sorted lots
+  const sortedLots = useMemo(() => {
+    if (!sortKey) return filteredLots;
+
+    return [...filteredLots].sort((a, b) => {
+      let aVal: string | number = 0;
+      let bVal: string | number = 0;
+
+      switch (sortKey) {
+        case 'certificate_number':
+          aVal = a.certificate_number ?? '';
+          bVal = b.certificate_number ?? '';
+          break;
+        case 'product':
+          aVal = `${a.stock_item?.alloy ?? ''} ${a.stock_item?.diameter_mm ?? ''}`;
+          bVal = `${b.stock_item?.alloy ?? ''} ${b.stock_item?.diameter_mm ?? ''}`;
+          break;
+        case 'supplier':
+          aVal = (a.supplier_ref?.name ?? a.supplier ?? '').toLowerCase();
+          bVal = (b.supplier_ref?.name ?? b.supplier ?? '').toLowerCase();
+          break;
+        case 'gross_weight_kg':
+          aVal = Number(a.gross_weight_kg);
+          bVal = Number(b.gross_weight_kg);
+          break;
+        case 'remaining_kg':
+          aVal = Number(a.remaining_kg);
+          bVal = Number(b.remaining_kg);
+          break;
+        case 'received_date':
+          aVal = a.received_date ?? '';
+          bVal = b.received_date ?? '';
+          break;
+      }
+
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredLots, sortKey, sortDir]);
+
+  // Lot totals
+  const lotTotals = useMemo(() => {
+    const totalGross = sortedLots.reduce((s, l) => s + Number(l.gross_weight_kg), 0);
+    const totalRemaining = sortedLots.reduce((s, l) => s + Number(l.remaining_kg), 0);
+    return { totalGross, totalRemaining, count: sortedLots.length };
+  }, [sortedLots]);
+
+  // Per stock-item totals (for items tab)
+  const itemTotals = useMemo(() => {
+    const map = new Map<number, { gross: number; remaining: number }>();
+    for (const lot of lots) {
+      const prev = map.get(lot.stock_item_id) ?? { gross: 0, remaining: 0 };
+      map.set(lot.stock_item_id, {
+        gross: prev.gross + Number(lot.gross_weight_kg),
+        remaining: prev.remaining + Number(lot.remaining_kg),
+      });
+    }
+    return map;
+  }, [lots]);
+
+  // Shared input class
+  const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent';
 
   if (loading) {
     return (
@@ -336,31 +421,28 @@ export function StockPage() {
         <nav className="flex gap-8">
           <button
             onClick={() => setActiveTab('items')}
-            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${
-              activeTab === 'items'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${activeTab === 'items'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
           >
             Çelik Ürünler
           </button>
           <button
             onClick={() => setActiveTab('lots')}
-            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${
-              activeTab === 'lots'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${activeTab === 'lots'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
           >
             Lotlar
           </button>
           <button
             onClick={() => setActiveTab('movements')}
-            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${
-              activeTab === 'movements'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${activeTab === 'movements'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
           >
             Stok Hareketleri
           </button>
@@ -456,16 +538,35 @@ export function StockPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Açıklama
                     </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Toplam Brüt (kg)
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Toplam Kalan (kg)
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {stockItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.alloy}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Ø{item.diameter_mm}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{item.description || '-'}</td>
-                    </tr>
-                  ))}
+                  {stockItems.map((item) => {
+                    const totals = itemTotals.get(item.id);
+                    return (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.alloy}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Ø{item.diameter_mm}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{item.description || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                          {totals ? `${totals.gross.toFixed(2)} kg` : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                          {totals ? (
+                            <span className={totals.remaining > 0 ? 'text-green-600' : 'text-red-500'}>
+                              {totals.remaining.toFixed(2)} kg
+                            </span>
+                          ) : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -476,259 +577,25 @@ export function StockPage() {
       {/* LOTLAR */}
       {activeTab === 'lots' && (
         <div>
-          <div className="flex flex-col gap-3 mb-6">
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowLotForm(!showLotForm)}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                Yeni Lot
-              </button>
-            </div>
-
-            {/* Filters */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Alaşım</label>
-                  <input
-                    value={lotFilters.alloy}
-                    onChange={(e) => setLotFilters({ ...lotFilters, alloy: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="örn. 6063"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Çap (mm)</label>
-                  <input
-                    type="number"
-                    value={lotFilters.diameter_mm}
-                    onChange={(e) => setLotFilters({ ...lotFilters, diameter_mm: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="örn. 178"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Tedarikçi</label>
-                  <input
-                    value={lotFilters.supplier}
-                    onChange={(e) => setLotFilters({ ...lotFilters, supplier: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="örn. Erdemir"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Sertifika No</label>
-                  <input
-                    value={lotFilters.certificate_number}
-                    onChange={(e) => setLotFilters({ ...lotFilters, certificate_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="örn. CERT-2026..."
-                  />
-                </div>
-
-                <div className="flex items-end gap-3">
-                  <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={lotFilters.only_with_remaining}
-                      onChange={(e) => setLotFilters({ ...lotFilters, only_with_remaining: e.target.checked })}
-                    />
-                    Sadece kalan &gt; 0
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 mt-3">
-                <button
-                  type="button"
-                  onClick={loadLots}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Ara
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLotFilters({
-                      alloy: '',
-                      diameter_mm: '',
-                      supplier: '',
-                      certificate_number: '',
-                      only_with_remaining: false,
-                    });
-                    // reset sonrası tüm lotları yükle
-                    setTimeout(() => loadLots(), 0);
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Temizle
-                </button>
-              </div>
-            </div>
+          <div className="flex justify-end gap-3 mb-6">
+            <button
+              onClick={() => setShowFilters((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-3 rounded-lg border transition-colors ${showFilters
+                ? 'bg-blue-50 border-blue-300 text-blue-700'
+                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Filtrele
+            </button>
+            <button
+              onClick={() => setShowLotForm(!showLotForm)}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Yeni Lot
+            </button>
           </div>
-
-          {/* LOT DÜZENLE MODAL */}
-          {editingLot && (
-            <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-              <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Lot Düzenle — {editingLot.certificate_number}
-                  </h3>
-                  <button
-                    onClick={() => setEditingLot(null)}
-                    className="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-                  >
-                    Kapat
-                  </button>
-                </div>
-
-                <form onSubmit={handleUpdateLot}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Çelik Ürün *</label>
-                      <select
-                        value={editLotForm.stock_item_id}
-                        onChange={(e) =>
-                          setEditLotForm({ ...editLotForm, stock_item_id: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      >
-                        <option value="">Seçiniz</option>
-                        {stockItems.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.alloy} - Ø{item.diameter_mm}mm
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika No *</label>
-                      <input
-                        type="text"
-                        value={editLotForm.certificate_number}
-                        onChange={(e) =>
-                          setEditLotForm({ ...editLotForm, certificate_number: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Tedarikçi <span className="text-red-500">*</span>
-                      </label>
-
-                      <div className="flex gap-2">
-                        <select
-                          value={editLotForm.supplier_id}
-                          onChange={(e) => setEditLotForm({ ...editLotForm, supplier_id: e.target.value })}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          required
-                        >
-                          <option value="">Tedarikçi seçiniz</option>
-                          {suppliers.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setQuickForm(EMPTY_SUPPLIER_FORM);
-                            setQuickError('');
-                            setShowQuickSupplier(true);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
-                        >
-                          <Truck className="w-4 h-4" />
-                          + Yeni Tedarikçi
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Uzunluk (mm) *</label>
-                      <input
-                        type="number"
-                        value={editLotForm.length_mm}
-                        onChange={(e) => setEditLotForm({ ...editLotForm, length_mm: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Brüt Ağırlık (kg) *</label>
-                      <input
-                        type="number"
-                        value={editLotForm.gross_weight_kg}
-                        onChange={(e) =>
-                          setEditLotForm({ ...editLotForm, gross_weight_kg: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        step="0.01"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Kalan (kg) *</label>
-                      <input
-                        type="number"
-                        value={editLotForm.remaining_kg}
-                        onChange={(e) =>
-                          setEditLotForm({ ...editLotForm, remaining_kg: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        step="0.01"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Giriş Tarihi *</label>
-                      <input
-                        type="date"
-                        value={editLotForm.received_date}
-                        onChange={(e) =>
-                          setEditLotForm({ ...editLotForm, received_date: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setEditingLot(null)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      İptal
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Kaydet
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
 
           {showLotForm && (
             <form
@@ -738,6 +605,7 @@ export function StockPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Lot</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Çelik Ürün */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Çelik Ürün *</label>
                   <select
@@ -755,6 +623,7 @@ export function StockPage() {
                   </select>
                 </div>
 
+                {/* Sertifika No */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika No *</label>
                   <input
@@ -765,55 +634,38 @@ export function StockPage() {
                     required
                   />
                 </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tedarikçi <span className="text-red-500">*</span>
-                </label>
 
-                <div className="flex gap-2">
-                  <select
-                    value={newLot.supplier_id}
-                    onChange={(e) => setNewLot({ ...newLot, supplier_id: e.target.value })}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Tedarikçi seçiniz</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQuickForm(EMPTY_SUPPLIER_FORM);
-                      setQuickError('');
-                      setShowQuickSupplier(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
-                  >
-                    <Truck className="w-4 h-4" />
-                    + Yeni Tedarikçi
-                  </button>
+                {/* Tedarikçi Dropdown */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tedarikçi *</label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={newLot.supplier_id}
+                      onChange={(e) => setNewLot({ ...newLot, supplier_id: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">Tedarikçi seçiniz</option>
+                      {suppliers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickForm(EMPTY_SUPPLIER_FORM);
+                        setQuickError('');
+                        setShowQuickSupplier(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
+                    >
+                      <Truck className="w-4 h-4" />
+                      + Yeni Tedarikçi
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Giriş Tarihi */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Giriş Tarihi <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={newLot.received_date}
-                  onChange={(e) => setNewLot({ ...newLot, received_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-                
 
                 {/* Uzunluk */}
                 <div>
@@ -841,7 +693,19 @@ export function StockPage() {
                   />
                 </div>
 
-                {/* Sertifika dosyası upload */}
+                {/* Giriş Tarihi */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Giriş Tarihi *</label>
+                  <input
+                    type="date"
+                    value={newLot.received_date}
+                    onChange={(e) => setNewLot({ ...newLot, received_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                {/* Sertifika Dosyası */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika Dosyası</label>
                   <input
@@ -853,7 +717,6 @@ export function StockPage() {
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-
                   {lotCertificateFiles.length > 0 && (
                     <div className="mt-2 text-sm text-gray-600">
                       <div className="font-medium text-gray-700 mb-1">Seçilen dosyalar:</div>
@@ -898,62 +761,258 @@ export function StockPage() {
             </form>
           )}
 
-          {/* Lot toplamları */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="text-sm text-gray-500">Lot Sayısı</div>
-              <div className="text-2xl font-bold text-gray-900">
-                {lotTotals.count}
+          {/* ======================================
+              FILTER CARD
+          ====================================== */}
+          {showFilters && <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Filtreler</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleResetFilters}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Temizle
+                </button>
+                <button
+                  onClick={() => setShowFilters(false)}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"
+                  title="Filtreleri kapat"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="text-sm text-gray-500">Toplam Brüt (kg)</div>
-              <div className="text-2xl font-bold text-gray-900">
-                {lotTotals.totalGross.toFixed(2)} kg
+            {/* Row 1: text search + dropdowns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+              {/* Free text */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Arama (sertifika no, ürün...)</label>
+                <input
+                  type="text"
+                  placeholder="ör. 6063, Ø152, CERT-001"
+                  value={lotFilters.text}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, text: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Çelik Ürün */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Çelik Ürün</label>
+                <select
+                  value={lotFilters.stockItemId}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, stockItemId: e.target.value }))}
+                  className={inputCls}
+                >
+                  <option value="">Tümü</option>
+                  {stockItems.map((item) => (
+                    <option key={item.id} value={String(item.id)}>
+                      {item.alloy} – Ø{item.diameter_mm}mm
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Tedarikçi */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Tedarikçi</label>
+                <select
+                  value={lotFilters.supplierId}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, supplierId: e.target.value }))}
+                  className={inputCls}
+                >
+                  <option value="">Tümü</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="text-sm text-gray-500">Toplam Kalan (kg)</div>
-              <div
-                className={`text-2xl font-bold ${
-                  lotTotals.totalRemaining > 0 ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                {lotTotals.totalRemaining.toFixed(2)} kg
+            {/* Row 2: numeric ranges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Brüt Ağırlık min (kg)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                  value={lotFilters.grossMin}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, grossMin: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Brüt Ağırlık max (kg)</label>
+                <input
+                  type="number"
+                  placeholder="∞"
+                  min="0"
+                  step="0.01"
+                  value={lotFilters.grossMax}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, grossMax: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Kalan min (kg)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                  value={lotFilters.remainingMin}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, remainingMin: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Kalan max (kg)</label>
+                <input
+                  type="number"
+                  placeholder="∞"
+                  min="0"
+                  step="0.01"
+                  value={lotFilters.remainingMax}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, remainingMax: e.target.value }))}
+                  className={inputCls}
+                />
               </div>
             </div>
+
+            {/* Row 3: date range */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Giriş Tarihi (başlangıç)</label>
+                <input
+                  type="date"
+                  value={lotFilters.dateFrom}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, dateFrom: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Giriş Tarihi (bitiş)</label>
+                <input
+                  type="date"
+                  value={lotFilters.dateTo}
+                  onChange={(e) => setLotFilters((f) => ({ ...f, dateTo: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          </div>}
+
+          {/* ======================================
+              TOTALS BAR
+          ====================================== */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 font-medium">
+              Toplam Lot: <strong>{lotTotals.count}</strong>
+              {lotTotals.count !== lots.length && (
+                <span className="text-gray-400 font-normal">/ {lots.length}</span>
+              )}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-full text-sm text-blue-700 font-medium">
+              Toplam Brüt: <strong>{lotTotals.totalGross.toFixed(2)} kg</strong>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 rounded-full text-sm text-green-700 font-medium">
+              Toplam Kalan: <strong>{lotTotals.totalRemaining.toFixed(2)} kg</strong>
+            </span>
           </div>
 
+          {/* ======================================
+              LOTS TABLE
+          ====================================== */}
           {lots.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz lot yok</h3>
               <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni lot ekleyin</p>
             </div>
+          ) : sortedLots.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-700 mb-2">Filtreye uyan lot bulunamadı</h3>
+              <p className="text-gray-500 mb-4">Filtre kriterlerini değiştirin veya temizleyin.</p>
+              <button
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+              >
+                <X className="w-4 h-4" />
+                Filtreleri Temizle
+              </button>
+            </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    {/* Sortable: Sertifika No */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sertifika No
+                      <button
+                        onClick={() => handleSort('certificate_number')}
+                        className="flex items-center hover:text-gray-700 transition-colors"
+                      >
+                        Sertifika No
+                        <SortIcon col="certificate_number" sortKey={sortKey} sortDir={sortDir} />
+                      </button>
                     </th>
+                    {/* Sortable: Ürün */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ürün
+                      <button
+                        onClick={() => handleSort('product')}
+                        className="flex items-center hover:text-gray-700 transition-colors"
+                      >
+                        Ürün
+                        <SortIcon col="product" sortKey={sortKey} sortDir={sortDir} />
+                      </button>
                     </th>
+                    {/* Sortable: Tedarikçi */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tedarikçi
+                      <button
+                        onClick={() => handleSort('supplier')}
+                        className="flex items-center hover:text-gray-700 transition-colors"
+                      >
+                        Tedarikçi
+                        <SortIcon col="supplier" sortKey={sortKey} sortDir={sortDir} />
+                      </button>
                     </th>
+                    {/* Sortable: Brüt Ağırlık */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Brüt Ağırlık
+                      <button
+                        onClick={() => handleSort('gross_weight_kg')}
+                        className="flex items-center hover:text-gray-700 transition-colors"
+                      >
+                        Brüt Ağırlık
+                        <SortIcon col="gross_weight_kg" sortKey={sortKey} sortDir={sortDir} />
+                      </button>
                     </th>
+                    {/* Sortable: Kalan */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Kalan
+                      <button
+                        onClick={() => handleSort('remaining_kg')}
+                        className="flex items-center hover:text-gray-700 transition-colors"
+                      >
+                        Kalan
+                        <SortIcon col="remaining_kg" sortKey={sortKey} sortDir={sortDir} />
+                      </button>
                     </th>
+                    {/* Sortable: Giriş Tarihi */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Giriş Tarihi
+                      <button
+                        onClick={() => handleSort('received_date')}
+                        className="flex items-center hover:text-gray-700 transition-colors"
+                      >
+                        Giriş Tarihi
+                        <SortIcon col="received_date" sortKey={sortKey} sortDir={sortDir} />
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Dosyalar
@@ -963,9 +1022,8 @@ export function StockPage() {
                     </th>
                   </tr>
                 </thead>
-
                 <tbody className="divide-y divide-gray-200">
-                  {lots.map((lot) => (
+                  {sortedLots.map((lot) => (
                     <tr key={lot.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {lot.certificate_number}
@@ -973,7 +1031,6 @@ export function StockPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {lot.stock_item?.alloy} - Ø{lot.stock_item?.diameter_mm}mm
                       </td>
-                      {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{lot.supplier}</td> */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {/* Prefer linked supplier name, fall back to legacy string */}
                         {lot.supplier_ref?.name ?? lot.supplier}
@@ -1002,7 +1059,7 @@ export function StockPage() {
                                 href={mediaUrl(f.storage_path)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                title={f.original_name}   // hover tooltip
+                                title={f.original_name}
                                 className="text-blue-600 hover:text-blue-800 transition-colors"
                               >
                                 <FileText className="w-5 h-5" />
@@ -1014,14 +1071,6 @@ export function StockPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <button
-                          onClick={() => openEditLot(lot)}
-                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
-                          title="Lotu Düzenle"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Düzenle
-                        </button>
                         <button
                           onClick={() => handleDeleteLot(lot.id)}
                           className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
@@ -1098,7 +1147,6 @@ export function StockPage() {
         </div>
       )}
 
-      
       {/* ========================================
           QUICK-CREATE SUPPLIER MODAL
           ======================================== */}
