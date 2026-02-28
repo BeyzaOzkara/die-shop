@@ -139,33 +139,18 @@ export function WorkOrdersPage() {
 
   const getStatusColor = (status: UiStatus) => STATUS_COLORS[status] ?? STATUS_COLORS.Waiting;
   const getStatusText = (status: UiStatus) => STATUS_TEXT[status] ?? String(status);
-  // hem WorkOrder hem WorkOrderOperation status'leri için kullanıyoruz
-  // const getStatusColor = (status: UiStatus) => {
-  //   const colors: Record<UiStatus, string> = {
-  //     Waiting: 'bg-gray-100 text-gray-800',
-  //     InProgress: 'bg-yellow-100 text-yellow-800',
-  //     Completed: 'bg-green-100 text-green-800',
-  //     Cancelled: 'bg-red-100 text-red-800',
-  //     Paused: 'bg-orange-100 text-orange-800',
-  //   };
-  //   return colors[status];
-  // };
 
-  // const getStatusText = (status: UiStatus) => {
-  //   const texts: Record<UiStatus, string> = {
-  //     Waiting: 'Bekliyor',
-  //     InProgress: 'Devam Ediyor',
-  //     Completed: 'Tamamlandı',
-  //     Cancelled: 'İptal Edildi',
-  //     Paused: 'Duraklatıldı',
-  //   };
-  //   return texts[status];
-  // };
-
-  const opTitle = (op: WorkOrderOperation) =>
-    op.operation_type?.name ??
-    (op.operation_type_id ? `OperationType#${op.operation_type_id}` : `Operation#${op.id}`);
-
+  // const opTitle = (op: WorkOrderOperation) =>
+  //   op.operation_type?.name ??
+  //   (op.operation_type_id ? `OperationType#${op.operation_type_id}` : `Operation#${op.id}`);
+  const opTitle = (op: WorkOrderOperation) => {
+    const name = (op.operation_name ?? '').trim();
+    return (
+      name ||
+      op.operation_type?.name ||
+      (op.operation_type_id ? `OperationType#${op.operation_type_id}` : `Operation#${op.id}`)
+    );
+  };
 
   const getCurrentOperationText = (ops: WorkOrderOperation[]) => {
     if (ops.length === 0) {
@@ -361,7 +346,6 @@ export function WorkOrdersPage() {
                                   {op.sequence_number}
                                 </span>
                                 <h4 className="font-medium text-gray-900">
-                                  {/* {op.operation_name} */}
                                   {opTitle(op)}
                                 </h4>
                               </div>
