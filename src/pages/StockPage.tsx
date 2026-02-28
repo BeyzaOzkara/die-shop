@@ -1107,10 +1107,10 @@ export function StockPage() {
                       Tarih
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      İş Emri
+                      İş Emri No
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Bileşen
+                      Kalıp / Bileşen
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Lot
@@ -1121,25 +1121,52 @@ export function StockPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {movements.map((movement) => (
-                    <tr key={movement.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(movement.movement_date).toLocaleString('tr-TR')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {movement.work_order?.order_number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {movement.work_order?.die_component?.component_type?.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {movement.lot?.certificate_number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                        -{Number(movement.quantity_kg).toFixed(2)} kg
-                      </td>
-                    </tr>
-                  ))}
+                  {movements.map((movement) => {
+                    const wo = movement.work_order;
+                    const lot = movement.lot;
+                    const stockItem = lot?.stock_item;
+                    const alloyDiam = stockItem
+                      ? `${stockItem.alloy} Ø${stockItem.diameter_mm}mm`
+                      : '-';
+                    const supplierName =
+                      lot?.supplier_ref?.name ?? lot?.supplier ?? '-';
+                    const dieNumber = wo?.production_order?.die?.die_number;
+                    const componentName = wo?.die_component?.component_type?.name;
+                    const dieComponent = [dieNumber, componentName]
+                      .filter(Boolean)
+                      .join(' / ') || '-';
+
+                    return (
+                      <tr key={movement.id} className="hover:bg-gray-50">
+                        {/* Tarih */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(movement.movement_date).toLocaleString('tr-TR')}
+                        </td>
+
+                        {/* İş Emri No */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {wo?.order_number ?? '-'}
+                        </td>
+
+                        {/* Kalıp / Bileşen */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {dieComponent}
+                        </td>
+
+                        {/* Lot: alloy+diameter + supplier */}
+                        <td className="px-6 py-4 text-sm">
+                          <span className="font-medium text-gray-900">{alloyDiam}</span>
+                          <br />
+                          <span className="text-gray-500 text-xs">{supplierName}</span>
+                        </td>
+
+                        {/* Miktar */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                          -{Number(movement.quantity_kg).toFixed(2)} kg
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
