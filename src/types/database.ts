@@ -125,6 +125,7 @@ export interface Lot {
   stock_item_id: number;
   certificate_number: string;
   supplier: string;
+  supplier_id?: number | null;
   length_mm: number;
   gross_weight_kg: number;
   remaining_kg: number;
@@ -132,7 +133,26 @@ export interface Lot {
   received_date: string;
   created_at: string;
   stock_item?: SteelStockItem;
+  supplier_ref?: Supplier | null;
   files?: FileItem[];
+}
+
+// ===========================
+// SUPPLIER
+// ===========================
+
+export interface Supplier {
+  id: number;
+  name: string;
+  tax_no?: string | null;
+  contact_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // ===========================

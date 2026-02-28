@@ -35,6 +35,7 @@ export async function createLot(payload: {
   stock_item_id: number;
   certificate_number: string;
   supplier: string;
+  supplier_id?: number | null;
   length_mm: number;
   gross_weight_kg: number;
   remaining_kg: number;
@@ -87,6 +88,7 @@ export async function updateLot(
   payload: Partial<{
     stock_item_id: number;
     certificate_number: string;
+    supplier_id: number | null;
     supplier: string;
     length_mm: number;
     gross_weight_kg: number;

@@ -12,6 +12,7 @@ import {
   List,
   UserCircle,
   LogOut,
+  Truck,
 } from "lucide-react";
 
 import { DiesPage } from "./pages/DiesPage";
@@ -26,6 +27,7 @@ import { ComponentBOMPage } from "./pages/ComponentBOMPage";
 import { OperatorsPage } from "./pages/OperatorsPage";
 import { OperationTypesPage } from "./pages/OperationTypesPage";
 import { OperatorApp } from "./pages/operator/OperatorApp";
+import { SuppliersPage } from "./pages/SuppliersPage";
 
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignUpPage";
@@ -45,7 +47,8 @@ type Page =
   | "component-types"
   | "die-type-components"
   | "operation-types"
-  | "component-bom";
+  | "component-bom"
+  | "suppliers";
 
 type AuthScreen = "login" | "signup";
 
@@ -179,6 +182,7 @@ function App() {
       name: "Operasyon Tipleri Yönetimi",
       icon: Factory,
     },
+    { id: "suppliers" as Page, name: "Tedarikçi Yönetimi", icon: Truck },
   ];
 
   const renderPage = () => {
@@ -205,6 +209,8 @@ function App() {
         return <ComponentBOMPage />;
       case "operation-types":
         return <OperationTypesPage />;
+      case "suppliers":
+        return <SuppliersPage />;
       default:
         return <DiesPage />;
     }
