@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { DiesPage } from "./pages/DiesPage";
+import { DiesDashboardPage } from "./pages/DiesDashboardPage";
 import { ProductionOrdersPage } from "./pages/ProductionOrdersPage";
 import { WorkOrdersPage } from "./pages/WorkOrdersPage";
 import { StockPage } from "./pages/StockPage";
@@ -38,6 +39,7 @@ import type { User } from "./types/database";
 
 type Page =
   | "dies"
+  | "dies-dashboard"
   | "production-orders"
   | "work-orders"
   | "stock"
@@ -188,7 +190,9 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case "dies":
-        return <DiesPage />;
+        return <DiesPage onNavigateToDashboard={() => setCurrentPage("dies-dashboard")} />;
+      case "dies-dashboard":
+        return <DiesDashboardPage onBack={() => setCurrentPage("dies")} />;
       case "production-orders":
         return <ProductionOrdersPage />;
       case "work-orders":

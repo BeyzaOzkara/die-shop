@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Package, Eye, Search, Filter, Box } from 'lucide-react';
+import { Plus, Package, Eye, Search, Filter, Box, BarChart2 } from 'lucide-react';
 import { DieForm } from '../components/DieForm';
 import {
   getDies,
@@ -18,7 +18,12 @@ const dxfViewerUrl = (fileUrl: string) => {
   return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
 };
 
-export function DiesPage() {
+interface Props {
+  onNavigateToDashboard: () => void;
+}
+
+export function DiesPage({ onNavigateToDashboard }: Props) {
+//export function DiesPage() {
   const [dies, setDies] = useState<Die[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [selectedDie, setSelectedDie] = useState<Die | null>(null);
@@ -180,17 +185,27 @@ export function DiesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Kalıp Yönetimi</h1>
-          <p className="text-gray-600 mt-1">
-            Sistemdeki kalıpları görüntüleyin ve yönetin
-          </p>
+          <p className="text-gray-600 mt-1">Sistemdeki kalıpları görüntüleyin ve yönetin</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni Kalıp
-        </button>
+
+        {/* ✅ Sağ buton grubu */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni Kalıp
+          </button>
+
+          <button
+            onClick={onNavigateToDashboard}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <BarChart2 className="w-4 h-4" />
+            Genel Durum
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

@@ -37,7 +37,6 @@ export async function getDieComponents(dieId: number): Promise<DieComponent[]> {
   return api.get<DieComponent[]>(`/dies/${dieId}/components`);
 }
 
-
 export async function createDie(params: {
   dieNumber: string;
   dieDiameterMm: number;
@@ -123,6 +122,27 @@ export async function updateDieStatus(
 ): Promise<Die> {
   // PATCH /dies/{dieId}
   return api.patch<Die>(`/dies/${dieId}`, { status });
+}
+
+// =======================
+// Stats types & service
+// =======================
+
+export interface DieStatsComponentItem {
+  component_type_id: number;
+  component_type_name: string;
+  component_rows_count: number;
+  die_count: number;
+}
+
+export interface DieStats {
+  total_dies: number;
+  total_profiles: number;
+  components: DieStatsComponentItem[];
+}
+
+export async function getDieStats(): Promise<DieStats> {
+  return api.get<DieStats>('/dies/stats');
 }
 
 // =======================
