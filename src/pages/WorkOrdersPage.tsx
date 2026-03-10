@@ -6,6 +6,10 @@ import {
   updateOperationStatus,
   completeWorkOrder,
 } from '../services/orderService';
+import {
+  getLastOperatorsForOperations,
+  type LastOperatorInfo,
+} from '../services/operatorService';
 import { getAvailableLots } from '../services/stockService';
 import type { WorkOrder, WorkOrderOperation, Lot } from '../types/database';
 import { mediaUrl } from "../lib/media";
@@ -26,6 +30,7 @@ export function WorkOrdersPage() {
   const [selectedLot, setSelectedLot] = useState('');
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [lastOperatorMap, setLastOperatorMap] = useState<Record<string, LastOperatorInfo>>({});
 
   useEffect(() => {
     loadWorkOrders();
@@ -61,6 +66,18 @@ export function WorkOrdersPage() {
     try {
       const data = await getWorkOrderOperations(workOrderId);
       setOperations(data);
+      // Fetch log-based last-operator for each operation
+      if (data.length > 0) {
+        const ids = data.map((op: WorkOrderOperation) => op.id);
+        try {
+          const map = await getLastOperatorsForOperations(ids);
+          setLastOperatorMap(map);
+        } catch {
+          // non-critical — just leave map empty
+        }
+      } else {
+        setLastOperatorMap({});
+      }
     } catch (error) {
       console.error('Operasyonlar yüklenemedi:', error);
     }
@@ -400,9 +417,9 @@ export function WorkOrdersPage() {
                               <p className="text-sm text-gray-600">
                                 {op.work_center?.name}
                               </p>
-                              {op.operator_name && (
+                              {lastOperatorMap[String(op.id)] && (
                                 <p className="text-xs text-gray-500 mt-1">
-                                  Operatör: {op.operator_name}
+                                  Son Operatör: {lastOperatorMap[String(op.id)].operator_name}
                                 </p>
                               )}
                             </div>

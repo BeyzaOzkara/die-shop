@@ -31,15 +31,6 @@ export async function getOperators(): Promise<Operator[]> {
 /**
  * Operatör oluştur
  * POST /operators
- *
- * Body:
- * {
- *   rfid_code: string;
- *   name: string;
- *   employee_number?: string;
- *   work_center_ids: number[];
- *   is_active: boolean;
- * }
  */
 export async function createOperator(payload: {
   rfid_code: string;
@@ -92,31 +83,6 @@ export async function getWorkCenterOperations(
   );
 }
 
-/**
- * Operasyon başlat
- * POST /work-order-operations/{id}/start
- * Body: { operator_id, operator_name }
- */
-// export async function startOperation(
-//   operationId: string | number,
-//   operatorId: string | number, // bu apiye eklenmeli
-//   operatorName: string
-// ): Promise<WorkOrderOperation> {
-//   return await api.patch<WorkOrderOperation>(
-//     // `/work-order-operations/${operationId}/start`,
-//     // {
-//     //   operator_id: operatorId,
-//     //   operator_name: operatorName,
-//     // }
-//     `/work-order-operations/${operationId}`,
-//     {
-//       status: 'InProgress',
-//       operator_name: operatorName,
-//     }
-//   );
-// }
-
-
 export async function getAvailableOperationsForOperator(payload: {
   operator_id: number;
   operation_type_id: number;
@@ -131,13 +97,14 @@ export async function getAvailableOperationsForOperator(payload: {
 export async function startOperation( // operatörün kullandığı start work center atama yapan
   operationId: string | number,
   workCenterId: string | number,
-  operatorName?: string
+  operatorId: number,  // operator.id — NOT operator.name
 ): Promise<WorkOrderOperation> {
   return await api.post<WorkOrderOperation>(
-    `/work-order-operations/${operationId}/start`,
+    `/operator-panel/operations/${operationId}/start`,
+    // `/work-order-operations/${operationId}/start`,
     {
       work_center_id: Number(workCenterId),
-      operator_name: operatorName,
+      operator_id: operatorId,
     }
   );
 }
@@ -145,50 +112,80 @@ export async function startOperation( // operatörün kullandığı start work c
 
 /**
  * Operasyon duraklat
- * POST /work-order-operations/{id}/pause
+ * eski POST /work-order-operations/{id}/pause
+ * POST /operator-panel/operations/{id}/pause
  */
 export async function pauseOperation(
-  operationId: string | number
+  operationId: string | number,
+  operatorId: number,
 ): Promise<WorkOrderOperation> {
-  return await api.patch<WorkOrderOperation>(
-    `/work-order-operations/${operationId}`,
-    {
-      status: 'Paused',
-    }
+  return await api.post<WorkOrderOperation>(
+    `/operator-panel/operations/${operationId}/pause`,
+    { operator_id: operatorId }
   );
-  // return await api.post<WorkOrderOperation>(
-  //   `/work-order-operations/${operationId}/pause`
+  // return await api.patch<WorkOrderOperation>(
+  //   `/work-order-operations/${operationId}`,
+  //   {
+  //     status: 'Paused',
+  //   }
   // );
 }
 
 /**
+ * Duraklatılmış operasyonu devam ettir
+ * POST /operator-panel/operations/{id}/resume
+ */
+export async function resumeOperation(
+  operationId: string | number,
+  operatorId: number,
+): Promise<WorkOrderOperation> {
+  return await api.post<WorkOrderOperation>(
+    `/operator-panel/operations/${operationId}/resume`,
+    { operator_id: operatorId }
+  );
+}
+
+/**
  * Operasyon tamamla
- * POST /work-order-operations/{id}/complete
+ * eski POST /work-order-operations/{id}/complete
+ * POST /operator-panel/operations/{id}/complete
  */
 export async function completeOperation(
-  operationId: string | number
+  operationId: string | number,
+  operatorId: number,
 ): Promise<WorkOrderOperation> {
-  return await api.patch<WorkOrderOperation>(
-    `/work-order-operations/${operationId}`,
-    {
-      status: 'Completed',
-    }
+  return await api.post<WorkOrderOperation>(
+      `/operator-panel/operations/${operationId}/complete`,
+      { operator_id: operatorId }
   );
-  // return await api.post<WorkOrderOperation>(
-  //   `/work-order-operations/${operationId}/complete`
-  // );
 }
 
 export async function cancelOperation(
-  operationId: string | number
+  operationId: string | number,
+  operatorId: number,
+  reasonCode?: string,
 ): Promise<WorkOrderOperation> {
-  return await api.patch<WorkOrderOperation>(
-    `/work-order-operations/${operationId}`,
-    {
-      status: 'Cancelled',
-    }
+  return await api.post<WorkOrderOperation>(
+    `/operator-panel/operations/${operationId}/cancel`,
+    { operator_id: operatorId, reason_code: reasonCode }
   );
- }
+}
+
+/**
+ * Operasyon reddet (KK/Supervisor)
+ * POST /operator-panel/operations/{id}/reject
+ */
+export async function rejectOperation(
+  operationId: string | number,
+  operatorId: number,
+  reasonCode?: string,
+  notes?: string,
+): Promise<WorkOrderOperation> {
+  return await api.post<WorkOrderOperation>(
+    `/operator-panel/operations/${operationId}/reject`,
+    { operator_id: operatorId, reason_code: reasonCode, notes }
+  );
+}
 
  export interface EligibleWorkCenterRead {
   id: number;
@@ -234,5 +231,28 @@ export async function completeSawOperation(
   return await api.post<WorkOrderOperation>(
     `/work-order-operations/${operationId}/complete-saw`,
     payload
+  );
+}
+
+/**
+ * Son operatörü toplu sorgula (İş Emirleri / Çalışma Merkezleri sayfaları için)
+ * GET /operator-panel/operations/last-operators?operation_ids=1,2,3
+ *
+ * Returns: Record<string, { operator_id, operator_name, action_type, performed_at }>
+ */
+export interface LastOperatorInfo {
+  operator_id: number;
+  operator_name: string;
+  action_type: string;
+  performed_at: string;
+}
+
+export async function getLastOperatorsForOperations(
+  operationIds: number[]
+): Promise<Record<string, LastOperatorInfo>> {
+  if (operationIds.length === 0) return {};
+  const ids = operationIds.join(',');
+  return await api.get<Record<string, LastOperatorInfo>>(
+    `/operator-panel/operations/last-operators?operation_ids=${ids}`
   );
 }

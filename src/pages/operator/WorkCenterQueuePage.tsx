@@ -22,6 +22,7 @@ import {
   getEligibleWorkCentersForOperator,            // ✅ NEW (senin endpoint)
   startOperation,
   pauseOperation,
+  resumeOperation,
   completeOperation,
   cancelOperation,                              // ✅ NEW: zaten service’te var
   
@@ -236,7 +237,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
     try {
       setActionLoading(selectedOperation.id);
 
-      await startOperation(selectedOperation.id, selectedWorkCenterId, operator.name);
+      await startOperation(selectedOperation.id, selectedWorkCenterId, operator.id);
 
       // Available listesinden düşür (unassigned + waiting listesiydi)
       setOperations((prev) => prev.filter((x) => x.id !== selectedOperation.id));
@@ -253,10 +254,16 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
   };
 
   // Assigned tab: Start/Resume
+  // Distinguish: Paused ops use resumeOperation to log OPERATION_RESUME correctly
   const handleStartAssigned = async (op: WorkOrderOperation, workCenterId: number) => {
     try {
       setActionLoading(op.id);
-      await startOperation(op.id, workCenterId, operator.name);
+      // await startOperation(op.id, workCenterId, operator.id);
+      if (op.status === 'Paused') {
+        await resumeOperation(op.id, operator.id);
+      } else {
+        await startOperation(op.id, workCenterId, operator.id);
+      }
       await refreshAll();
     } catch (err: any) {
       console.error('Operasyon başlatılamadı:', err);
@@ -272,7 +279,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
 
     try {
       setActionLoading(op.id);
-      await pauseOperation(op.id);
+      await pauseOperation(op.id, operator.id);
       await refreshAll();
     } catch (err: any) {
       console.error('Operasyon duraklatılamadı:', err);
@@ -314,43 +321,43 @@ const closeSawCompleteModal = () => {
   setLotsError('');
 };
 
-  const handleCompleteOperation = async (op: WorkOrderOperation) => {
-    // TESTERE ise modal
-    if (isSawOperation(op)) {
-      await openSawCompleteModal(op);
-      return;
-    }
+const handleCompleteOperation = async (op: WorkOrderOperation) => {
+  // TESTERE ise modal
+  if (isSawOperation(op)) {
+    await openSawCompleteModal(op);
+    return;
+  }
 
-    if (!confirm('Bu operasyonu tamamlamak istediğinizden emin misiniz?')) return;
+  if (!confirm('Bu operasyonu tamamlamak istediğinizden emin misiniz?')) return;
 
-    try {
-      setActionLoading(op.id);
-      await completeOperation(op.id);
-      await refreshAll();
-      alert('Operasyon başarıyla tamamlandı!');
-    } catch (err: any) {
-      console.error('Operasyon tamamlanamadı:', err);
-      alert('Operasyon tamamlanırken bir hata oluştu');
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  try {
+    setActionLoading(op.id);
+    await completeOperation(op.id, operator.id);
+    await refreshAll();
+    alert('Operasyon başarıyla tamamlandı!');
+  } catch (err: any) {
+    console.error('Operasyon tamamlanamadı:', err);
+    alert('Operasyon tamamlanırken bir hata oluştu');
+  } finally {
+    setActionLoading(null);
+  }
+};
 
-  const handleCancelOperation = async (op: WorkOrderOperation) => {
-    if (!confirm('Bu operasyonu iptal etmek istediğinizden emin misiniz?')) return;
+const handleCancelOperation = async (op: WorkOrderOperation) => {
+  if (!confirm('Bu operasyonu iptal etmek istediğinizden emin misiniz?')) return;
 
-    try {
-      setActionLoading(op.id);
-      await cancelOperation(op.id);
-      await refreshAll();
-      alert('Operasyon iptal edildi.');
-    } catch (err: any) {
-      console.error('Operasyon iptal edilemedi:', err);
-      alert('Operasyon iptal edilirken bir hata oluştu');
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  try {
+    setActionLoading(op.id);
+    await cancelOperation(op.id, operator.id);
+    await refreshAll();
+    alert('Operasyon iptal edildi.');
+  } catch (err: any) {
+    console.error('Operasyon iptal edilemedi:', err);
+    alert('Operasyon iptal edilirken bir hata oluştu');
+  } finally {
+    setActionLoading(null);
+  }
+};
 
   const submitSawComplete = async () => {
   if (!sawTargetOperation) return;
@@ -438,9 +445,7 @@ const closeSawCompleteModal = () => {
               <div className="mt-3 flex items-center gap-2">
                 <button
                   onClick={() => setTab('available')}
-                  className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${
-                    tab === 'available' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'
-                  }`}
+                  className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${tab === 'available' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'}`}
                 >
                   <ListTodo className="w-4 h-4" />
                   Uygun Operasyonlar
@@ -448,9 +453,7 @@ const closeSawCompleteModal = () => {
 
                 <button
                   onClick={() => setTab('assigned')}
-                  className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${
-                    tab === 'assigned' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'
-                  }`}
+                  className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${tab === 'assigned' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'}`}
                 >
                   <Factory className="w-4 h-4" />
                   Çalışma Merkezlerimdeki İşler

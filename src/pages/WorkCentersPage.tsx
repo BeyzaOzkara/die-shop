@@ -4,6 +4,10 @@ import { getWorkCenters, createWorkCenter, updateWorkCenter } from '../services/
 import { getOperationsByWorkCenter } from '../services/orderService';
 import { getOperationTypes } from '../services/operationTypeService';
 import type { WorkCenter, WorkOrderOperation, OperationStatus, OperationType } from '../types/database';
+import {
+  getLastOperatorsForOperations,
+  type LastOperatorInfo,
+} from '../services/operatorService';
 
 export function WorkCentersPage() {
   const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
@@ -13,6 +17,7 @@ export function WorkCentersPage() {
   const [loading, setLoading] = useState(true);
   const [operationTypes, setOperationTypes] = useState<OperationType[]>([]);
   const [selectedOpTypeIds, setSelectedOpTypeIds] = useState<number[]>([]);
+  const [lastOperatorMap, setLastOperatorMap] = useState<Record<string, LastOperatorInfo>>({});
 
 
   const [formData, setFormData] = useState({
@@ -60,6 +65,17 @@ export function WorkCentersPage() {
     try {
       const data = await getOperationsByWorkCenter(workCenterId);
       setOperations(data);
+      if (data.length > 0) {
+        const ids = data.map((op: WorkOrderOperation) => op.id);
+        try {
+          const map = await getLastOperatorsForOperations(ids);
+          setLastOperatorMap(map);
+        } catch {
+          // non-critical
+        }
+      } else {
+        setLastOperatorMap({});
+      }
     } catch (error) {
       console.error('Operasyonlar yüklenemedi:', error);
     }
@@ -520,9 +536,9 @@ export function WorkCentersPage() {
                               {getOperationStatusText(op.status)}
                             </span>
                           </div>
-                          {op.operator_name && (
+                          {lastOperatorMap[String(op.id)] && (
                             <p className="text-xs text-gray-500">
-                              Operatör: {op.operator_name}
+                              Son Operatör: {lastOperatorMap[String(op.id)].operator_name}
                             </p>
                           )}
                         </div>
