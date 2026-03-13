@@ -15,9 +15,64 @@ type CreateDieComponent = {
 // Dies
 // =======================
 
+// export async function getDies(): Promise<Die[]> {
+//   // GET /dies (backend die_type_ref ile dönüyor)
+//   return api.get<Die[]>('/dies');
+// }
 export async function getDies(): Promise<Die[]> {
-  // GET /dies (backend die_type_ref ile dönüyor)
-  return api.get<Die[]>('/dies');
+  // Legacy: returns all dies (no pagination). Keep for other callers.
+  const result = await api.get<{ items: Die[]; total: number }>('/dies?limit=200');
+  return result.items;
+}
+
+// =======================
+// Paginated / filtered
+// =======================
+
+export interface DieFilters {
+  search?: string;
+  status?: string;
+  dieTypeId?: number;
+  isRevisioned?: boolean;
+  dateFrom?: string; // 'YYYY-MM-DD'
+  dateTo?: string;   // 'YYYY-MM-DD'
+    // Numeric range
+  dieDiameterMmMin?: number;
+  dieDiameterMmMax?: number;
+  totalPackageLengthMmMin?: number;
+  totalPackageLengthMmMax?: number;
+  // Exact / text
+  figureCount?: number;
+  pressCode?: string;
+}
+
+export interface DiePageResult {
+  items: Die[];
+  total: number;
+}
+
+export async function getDiesPaged(
+  skip: number,
+  limit: number,
+  filters: DieFilters = {}
+): Promise<DiePageResult> {
+  const params = new URLSearchParams();
+  params.set('skip', String(skip));
+  params.set('limit', String(limit));
+  if (filters.search)     params.set('search', filters.search);
+  if (filters.status)     params.set('status', filters.status);
+  if (filters.dieTypeId != null) params.set('die_type_id', String(filters.dieTypeId));
+  if (filters.isRevisioned != null) params.set('is_revisioned', String(filters.isRevisioned));
+  if (filters.dateFrom)   params.set('date_from', filters.dateFrom);
+  if (filters.dateTo)     params.set('date_to', filters.dateTo);
+  if (filters.dieDiameterMmMin != null) params.set('die_diameter_mm_min', String(filters.dieDiameterMmMin));
+  if (filters.dieDiameterMmMax != null) params.set('die_diameter_mm_max', String(filters.dieDiameterMmMax));
+  if (filters.totalPackageLengthMmMin != null) params.set('total_package_length_mm_min', String(filters.totalPackageLengthMmMin));
+  if (filters.totalPackageLengthMmMax != null) params.set('total_package_length_mm_max', String(filters.totalPackageLengthMmMax));
+  if (filters.figureCount != null) params.set('figure_count', String(filters.figureCount));
+  if (filters.pressCode)  params.set('press_code', filters.pressCode);
+
+  return api.get<DiePageResult>(`/dies?${params.toString()}`);
 }
 
 export async function getDieById(id: number): Promise<Die | null> {
