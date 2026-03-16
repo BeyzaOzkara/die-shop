@@ -103,6 +103,8 @@ export async function createDie(params: {
   figureCount?: number | null;
   customerName?: string;
   pressCode?: string;
+  expectedCompletionDate?: string | null; // 'YYYY-MM-DD'
+  description?: string | null;
   
   isRevisioned: boolean;
 
@@ -124,7 +126,8 @@ export async function createDie(params: {
       customer_name: params.customerName ?? null,
       press_code: params.pressCode ?? null,
       is_revisioned: Boolean(params.isRevisioned),
-
+      expected_completion_date: params.expectedCompletionDate ?? null,
+      description: params.description ?? null,
       // ✅ NEW: backend DieCreateIn.components
       components: (params.components ?? []).map((c) => {
         const packageLen = Number(c.packageLengthMm);
@@ -251,6 +254,8 @@ export async function updateDie(
     figureCount?: number | null;
     customerName?: string;
     pressCode?: string;
+    expectedCompletionDate?: string | null; // 'YYYY-MM-DD'
+    description?: string | null;
     isRevisioned?: boolean;
   }
 ): Promise<Die> {
@@ -265,7 +270,9 @@ export async function updateDie(
   if (updates.figureCount !== undefined) payload.figure_count = updates.figureCount;
   if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
   if (updates.pressCode !== undefined) payload.press_code = updates.pressCode;
+  if (updates.description !== undefined) payload.description = updates.description;
   if (updates.isRevisioned !== undefined) payload.is_revisioned = updates.isRevisioned;
+  if (updates.expectedCompletionDate !== undefined) payload.expected_completion_date = updates.expectedCompletionDate;
 
   return api.patch<Die>(`/dies/${dieId}`, payload);
 }

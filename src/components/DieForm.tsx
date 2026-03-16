@@ -30,6 +30,8 @@ interface DieFormProps {
     figureCount?: number | null;
     customerName?: string;
     pressCode?: string;
+    expectedCompletionDate?: string | null;
+    description?: string | null;
 
     isRevisioned: boolean;
   }) => void | Promise<void>;
@@ -46,6 +48,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
   const [figureCount, setFigureCount] = useState(initialData?.figure_count?.toString() || '');
   const [customerName, setCustomerName] = useState(initialData?.customer_name || '');
   const [pressCode, setPressCode] = useState(initialData?.press_code || '');
+  const [expectedCompletionDate, setExpectedCompletionDate] = useState(initialData?.expected_completion_date || '');
+  const [description, setDescription] = useState(initialData?.description || '');
 
   const [isRevisioned, setIsRevisioned] = useState(initialData?.is_revisioned || false);
   const [designFiles, setDesignFiles] = useState<File[]>([]);
@@ -223,6 +227,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           figureCount: figureCount ? Number(figureCount) : null,
           customerName,
           pressCode,
+          description: description || null,
+          expectedCompletionDate: expectedCompletionDate || null,
           isRevisioned,
         });
       } else {
@@ -240,6 +246,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           figureCount: figureCount ? Number(figureCount) : null,
           customerName,
           pressCode,
+          description: description || null,
+          expectedCompletionDate: expectedCompletionDate || null,
           isRevisioned,
         });
 
@@ -267,6 +275,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           figureCount: figureCount ? Number(figureCount) : null,
           customerName,
           pressCode,
+          description: description || null,
+          expectedCompletionDate: expectedCompletionDate || null,
           isRevisioned,
         });
       }
@@ -308,7 +318,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
       {/* ===================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Kalıp Bilgileri</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2  xl:grid-cols-3 gap-4">
           {/* Kalıp Numarası */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -353,6 +363,24 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Kalıp Tipi *
+            </label>
+            <select
+              value={dieTypeId}
+              onChange={(e) => setDieTypeId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              {dieTypes.map((dt) => (
+                <option key={dt.id} value={String(dt.id)}>
+                  {dt.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Pres Kodu *</label>
             <input
               type="text"
@@ -376,20 +404,14 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Kalıp Tipi *
+              Ön Görülen Termin
             </label>
-            <select
-              value={dieTypeId}
-              onChange={(e) => setDieTypeId(e.target.value)}
+            <input
+              type="date"
+              value={expectedCompletionDate}
+              onChange={(e) => setExpectedCompletionDate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            >
-              {dieTypes.map((dt) => (
-                <option key={dt.id} value={String(dt.id)}>
-                  {dt.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
@@ -435,7 +457,21 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
             />
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 xl:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Açıklama
+            </label>
+
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Opsiyonel açıklama..."
+            />
+          </div>
+
+          <div className="md:col-span-2 xl:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tasarım Dosyaları (opsiyonel)
             </label>

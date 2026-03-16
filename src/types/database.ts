@@ -193,7 +193,9 @@ export interface Die {
   press_code: string;
 
   is_revisioned: boolean;
+  expected_completion_date?: string | null; // Ön Görülen Termin (YYYY-MM-DD)
 
+  description?: string | null; // Açıklama
   // Supabase'te de benzer mantık vardı; backend FastAPI bunu die_type_ref olarak döndürüyor.
   die_type_ref?: DieTypeRef;
   files?: FileItem[];
