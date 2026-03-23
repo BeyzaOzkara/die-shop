@@ -363,7 +363,25 @@ export function WorkOrdersPage() {
                       {selectedWorkOrder.theoretical_consumption_kg.toFixed(2)} kg
                     </p>
                   </div>
+                  
+                  {(selectedWorkOrder.production_order?.die as any)?.expected_completion_date && (
+                    <div className="bg-amber-50 rounded-lg p-4">
+                      <p className="text-sm text-amber-700 mb-1">Ön Görülen Termin</p>
+                      <p className="font-medium text-amber-900">
+                        {(selectedWorkOrder.production_order?.die as any).expected_completion_date}
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {(selectedWorkOrder.production_order?.die as any)?.description && (
+                  <div className="mb-6 bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-600 mb-1">Açıklama</p>
+                    <p className="text-gray-900 text-sm whitespace-pre-wrap">
+                      {(selectedWorkOrder.production_order?.die as any).description}
+                    </p>
+                  </div>
+                )}
 
                 {selectedWorkOrder.status !== 'Completed' && (
                   <div className="mb-6 p-4 bg-blue-50 rounded-lg">

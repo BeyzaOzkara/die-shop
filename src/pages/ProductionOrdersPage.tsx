@@ -332,35 +332,7 @@ export function ProductionOrdersPage() {
                     {getStatusText(selectedOrder.status)}
                   </span>
                 </div>
-                
-                {/* {selectedOrder?.die?.files?.length ? (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Kalıp Dosyaları</h3>
-                    <div className="text-sm space-y-1">
-                      {selectedOrder.die.files.map((f) => {
-                        const fileUrl = mediaUrl(f.storage_path);
-                        const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
-                        const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
-                        const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
-  
-                        return (
-                          <a
-                            key={f.id}
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                            title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
-                          >
-                            <Eye className="w-4 h-4" />
-                            {f.original_name}
-                            {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
-                          </a>
-                        ); }
-                    )}
-                    </div>
-                  </div>
-                ): null} */}
+
                                 {/* Kalıp Dosyaları + Dosya Ekle (Seçenek 1) */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-2">
@@ -463,7 +435,25 @@ export function ProductionOrdersPage() {
                       />
                     </div>
                   )}
+                  
+                  {(selectedOrder.die as any)?.expected_completion_date && (
+                    <div className="bg-amber-50 rounded-lg p-4">
+                      <p className="text-sm text-amber-700 mb-1">Ön Görülen Termin</p>
+                      <p className="font-medium text-amber-900">
+                        {(selectedOrder.die as any).expected_completion_date}
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {(selectedOrder.die as any)?.description && (
+                  <div className="mb-6 bg-rose-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-600 mb-1">Açıklama</p>
+                    <p className="text-gray-900 text-sm whitespace-pre-wrap">
+                      {(selectedOrder.die as any).description}
+                    </p>
+                  </div>
+                )}
 
                 {selectedOrder.status === 'Waiting' && workOrders.length === 0 && (
                   <div className="mb-6">
