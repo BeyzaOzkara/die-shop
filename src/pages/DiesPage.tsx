@@ -215,6 +215,8 @@ export function DiesPage({ onNavigateToDashboard }: Props) {
         figureCount: formData.figureCount ?? null,
         customerName: formData.customerName,
         pressCode: formData.pressCode,
+        description: formData.description ?? null,
+        expectedCompletionDate: formData.expectedCompletionDate ?? null,
         isRevisioned: Boolean(formData.isRevisioned),
         components: formData.components ?? [],
       });
