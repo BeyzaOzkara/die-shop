@@ -630,11 +630,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Teorik Tüketim (kg)
                       </label>
-                      <input
-                        // type="text"
-                        // value={component.theoreticalConsumptionKg.toFixed(2)}
-                        // className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                        // readOnly
+                      <input 
                         type="number"
                         value={component.theoreticalConsumptionKg || ''}
                         onChange={(e) => {

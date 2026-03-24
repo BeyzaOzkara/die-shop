@@ -14,6 +14,7 @@ import {
   X,
   ListTodo,
   Factory,
+  Search,
   Ban,
 } from 'lucide-react';
 import {
@@ -67,6 +68,9 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
 
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState('');
+
+  // ✅ Available tab search
+  const [availableSearch, setAvailableSearch] = useState('');
 
   // Modal state
   const [selectedOperation, setSelectedOperation] = useState<WorkOrderOperation | null>(null);
@@ -405,6 +409,23 @@ const handleCancelOperation = async (op: WorkOrderOperation) => {
 
   const waitingOperations = operations.filter((op) => op.status === 'Waiting' || op.status === 'Paused');
 
+  const filteredWaitingOperations = useMemo(() => {
+    const q = availableSearch.trim().toLowerCase();
+    if (!q) return waitingOperations;
+    return waitingOperations.filter((op) => {
+      const dieNumber = (op.work_order?.production_order?.die?.die_number ?? '').toLowerCase();
+      const componentName = (op.work_order?.die_component?.component_type?.name ?? '').toLowerCase();
+      const workOrderNumber = (op.work_order?.order_number ?? '').toLowerCase();
+      const operationName = (op.operation_name ?? op.operation_type?.name ?? '').toLowerCase();
+      return (
+        dieNumber.includes(q) ||
+        componentName.includes(q) ||
+        workOrderNumber.includes(q) ||
+        operationName.includes(q)
+      );
+    });
+  }, [waitingOperations, availableSearch]);
+
   const getStatusColor = (status: string) => {
     const colors = {
       Waiting: 'bg-gray-100 text-gray-800',
@@ -533,6 +554,28 @@ const handleCancelOperation = async (op: WorkOrderOperation) => {
               <p className="text-sm text-gray-600 mt-1">
                 Seçili operasyon tipi: <span className="font-medium">{selectedOpType?.name ?? '—'}</span> · Sadece önceki adımları tamam olanlar listelenir.
               </p>
+              
+              {/* Search bar */}
+              <div className="mt-3 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={availableSearch}
+                  onChange={(e) => setAvailableSearch(e.target.value)}
+                  placeholder="Kalıp no / iş emri / operasyon ara..."
+                  className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {availableSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setAvailableSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
+                    aria-label="Aramayı temizle"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {waitingOperations.length === 0 ? (
@@ -541,9 +584,15 @@ const handleCancelOperation = async (op: WorkOrderOperation) => {
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Uygun operasyon yok</h3>
                 <p className="text-gray-600">Bu operasyon tipi için başlatılabilir iş bulunamadı.</p>
               </div>
+              ) : filteredWaitingOperations.length === 0 ? (
+              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Aramaya uygun operasyon bulunamadı.</h3>
+                <p className="text-gray-600">Arama kriterlerinizi değiştirmeyi deneyin.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {waitingOperations.map((operation) => (
+                {filteredWaitingOperations.map((operation) => (
                   <div
                     key={operation.id}
                     className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
