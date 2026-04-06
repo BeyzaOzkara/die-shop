@@ -66,8 +66,20 @@ export async function getAvailableLots(
 }
 
 // Stok hareketleri
-export async function getStockMovements(): Promise<StockMovement[]> {
-  return api.get<StockMovement[]>('/inventory/stock-movements');
+// export async function getStockMovements(): Promise<StockMovement[]> {
+//   return api.get<StockMovement[]>('/inventory/stock-movements');
+
+export async function getStockMovements(filters?: {
+  skip?: number;
+  limit?: number;
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+}): Promise<{ items: StockMovement[]; total: number }> {
+  return api.get<{ items: StockMovement[]; total: number }>(
+    '/inventory/stock-movements',
+    filters ?? {}
+  );
 }
 
 export async function updateLotStock(

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Package, Plus, FileText, Trash2, Truck, X, ChevronUp, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Package, Plus, FileText, Trash2, Truck, X, ChevronUp, ChevronDown, ChevronsUpDown, SlidersHorizontal, Search, RotateCcw } from 'lucide-react';
 import {
   getSteelStockItems,
   createSteelStockItem,
@@ -58,6 +58,17 @@ const DEFAULT_LOT_FILTERS = {
 };
 
 // --------------------------------------------
+// Movement filter state
+// --------------------------------------------
+const DEFAULT_MOVEMENT_FILTERS = {
+  search: '',
+  dateFrom: '',
+  dateTo: '',
+};
+
+const MOVEMENT_PAGE_SIZE = 30;
+
+// --------------------------------------------
 // Sort indicator component
 // --------------------------------------------
 function SortIcon({ col, sortKey, sortDir }: { col: LotSortKey; sortKey: LotSortKey | null; sortDir: SortDir }) {
@@ -77,6 +88,22 @@ export function StockPage() {
   const [showLotForm, setShowLotForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // ---- Stock Movement states for infinite scroll ----
+  const [movementFilters, setMovementFilters] = useState(DEFAULT_MOVEMENT_FILTERS);
+  const [movementsTotal, setMovementsTotal] = useState(0);
+  const [movementsSkip, setMovementsSkip] = useState(0);
+  const [movementsLoadingMore, setMovementsLoadingMore] = useState(false);
+  const [movementsInitialLoading, setMovementsInitialLoading] = useState(false);
+
+  const movementsSentinelRef = useRef<HTMLDivElement | null>(null);
+  const movementsObserverRef = useRef<IntersectionObserver | null>(null);
+
+  // Stable refs to avoid stale closures in IntersectionObserver
+  const movementsFiltersRef = useRef(movementFilters);
+  const movementsSkipRef = useRef(0);
+  movementsFiltersRef.current = movementFilters;
+  movementsSkipRef.current = movementsSkip;
 
   // ---- New Stock Item ----
   const [newItem, setNewItem] = useState({
@@ -123,20 +150,89 @@ export function StockPage() {
       setSuppliers(activeSuppliers);
       setLots(lotsData);
 
-      if (activeTab === 'movements') {
-        const movementsData = await getStockMovements();
-        setMovements(movementsData);
-      }
+      // if (activeTab === 'movements') {
+      //   const movementsData = await getStockMovements();
+      //   setMovements(movementsData);
+      // }
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  // }, [activeTab]);
+  }, []);
+
+  const fetchMovements = useCallback(async (currentSkip: number, currentFilters: typeof DEFAULT_MOVEMENT_FILTERS, replace: boolean) => {
+    if (replace) {
+      setMovementsInitialLoading(true);
+    } else {
+      setMovementsLoadingMore(true);
+    }
+
+    try {
+      const res = await getStockMovements({
+        skip: currentSkip,
+        limit: MOVEMENT_PAGE_SIZE,
+        search: currentFilters.search,
+        date_from: currentFilters.dateFrom || undefined,
+        date_to: currentFilters.dateTo || undefined,
+      });
+
+      setMovementsTotal(res.total);
+      if (replace) {
+        setMovements(res.items);
+      } else {
+        setMovements(prev => [...prev, ...res.items]);
+      }
+      setMovementsSkip(currentSkip + res.items.length);
+    } catch (err) {
+      console.error('Stok hareketleri yüklenemedi:', err);
+    } finally {
+      setMovementsInitialLoading(false);
+      setMovementsLoadingMore(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  
+  // Handle movements tab loading and filters
+  useEffect(() => {
+    if (activeTab === 'movements') {
+      setMovementsSkip(0);
+      fetchMovements(0, movementFilters, true);
+    }
+  }, [activeTab, movementFilters, fetchMovements]);
+
+  // Infinite scroll observer for movements
+  useEffect(() => {
+    if (activeTab !== 'movements') return;
+    if (movementsObserverRef.current) movementsObserverRef.current.disconnect();
+
+    movementsObserverRef.current = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          !movementsLoadingMore &&
+          !movementsInitialLoading &&
+          movementsSkipRef.current < movementsTotal
+        ) {
+          fetchMovements(movementsSkipRef.current, movementsFiltersRef.current, false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (movementsSentinelRef.current) {
+      movementsObserverRef.current.observe(movementsSentinelRef.current);
+    }
+
+    return () => {
+      if (movementsObserverRef.current) movementsObserverRef.current.disconnect();
+    };
+  }, [activeTab, movementsLoadingMore, movementsInitialLoading, movementsTotal, fetchMovements]);
 
   // ---- Sort handler ----
   const handleSort = useCallback((key: LotSortKey) => {
@@ -1092,11 +1188,70 @@ export function StockPage() {
       {/* STOK HAREKETLERİ */}
       {activeTab === 'movements' && (
         <div>
-          {movements.length === 0 ? (
+                    {/* SEARCH & FILTERS */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Arama</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Alasım, Sertifika No, İş Emri No, Kalıp No..."
+                    value={movementFilters.search}
+                    onChange={(e) => setMovementFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Başlangıç Tarihi</label>
+                <input
+                  type="date"
+                  value={movementFilters.dateFrom}
+                  onChange={(e) => setMovementFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Bitiş Tarihi</label>
+                <input
+                  type="date"
+                  value={movementFilters.dateTo}
+                  onChange={(e) => setMovementFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            
+            {(movementFilters.search || movementFilters.dateFrom || movementFilters.dateTo) && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  onClick={() => setMovementFilters(DEFAULT_MOVEMENT_FILTERS)}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-600 transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Filtreleri Temizle
+                </button>
+              </div>
+            )}
+          </div>
+
+          {movementsInitialLoading ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              <p className="text-gray-600 mt-4">Hareketler yükleniyor...</p>
+            </div>
+          ) : movements.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz hareket yok</h3>
-              <p className="text-gray-600">İş emirleri tamamlandığında stok hareketleri burada görünecektir</p>
+              {/* <p className="text-gray-600">İş emirleri tamamlandığında stok hareketleri burada görünecektir</p> */}
+              <p className="text-gray-600">
+                {movementFilters.search || movementFilters.dateFrom || movementFilters.dateTo
+                  ? 'Arama kriterlerine uygun hareket bulunamadı'
+                  : 'İş emirleri tamamlandığında stok hareketleri burada görünecektir'}
+              </p>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -1169,6 +1324,17 @@ export function StockPage() {
                   })}
                 </tbody>
               </table>
+              
+              {/* Infinite Scroll Sentinel */}
+              <div ref={movementsSentinelRef} className="py-6 border-t border-gray-100 text-center">
+                {movementsLoadingMore ? (
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+                ) : movements.length < movementsTotal ? (
+                  <p className="text-sm text-gray-500">Daha fazla yükleniyor...</p>
+                ) : (
+                  <p className="text-sm text-gray-400">Tüm hareketler yüklendi ({movementsTotal})</p>
+                )}
+              </div>
             </div>
           )}
         </div>
