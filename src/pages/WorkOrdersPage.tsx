@@ -30,6 +30,7 @@ export function WorkOrdersPage() {
   const [selectedLot, setSelectedLot] = useState('');
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<WorkOrder['status'] | ''>('');
   const [lastOperatorMap, setLastOperatorMap] = useState<Record<string, LastOperatorInfo>>({});
 
   useEffect(() => {
@@ -160,8 +161,10 @@ export function WorkOrdersPage() {
 
   const filteredWorkOrders = useMemo(() => {
     const q = searchText.toLowerCase().trim();
-    if (!q) return workOrders;
+    // if (!q) return workOrders;
     return workOrders.filter((wo) => {
+      if (statusFilter && wo.status !== statusFilter) return false;
+      if (!q) return true;
       const haystack = [
         wo.order_number,
         wo.production_order?.die?.die_number ?? '',
@@ -170,7 +173,8 @@ export function WorkOrdersPage() {
       ].join(' ').toLowerCase();
       return haystack.includes(q);
     });
-  }, [workOrders, searchText]);
+  // }, [workOrders, searchText]);
+  }, [workOrders, searchText, statusFilter]);
 
 
   const opTitle = (op: WorkOrderOperation) => {
@@ -232,27 +236,48 @@ export function WorkOrdersPage() {
           {/* Sol: İş Emirleri listesi */}
           <div className="lg:col-span-1 space-y-3">
             {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Ara: iş emri, kalıp, bileşen..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              />
-              {searchText && (
-                <button
-                  onClick={() => setSearchText('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+            <div className="flex gap-3 items-center">
+  {/* Search */}
+  <div className="relative flex-1">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+    
+    <input
+      type="text"
+      placeholder="Ara: iş emri, kalıp, bileşen..."
+      value={searchText}
+      onChange={(e) => setSearchText(e.target.value)}
+      className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+    />
+
+    {searchText && (
+      <button
+        onClick={() => setSearchText('')}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    )}
+  </div>
+
+  {/* Status filter */}
+  <select
+    value={statusFilter}
+    onChange={(e) =>
+      setStatusFilter(e.target.value as WorkOrder['status'] | '')
+    }
+    className="w-48 py-2 px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+  >
+    <option value="">Tüm Durumlar</option>
+    <option value="Waiting">Bekliyor</option>
+    <option value="InProgress">Devam Ediyor</option>
+    <option value="Completed">Tamamlandı</option>
+    <option value="Cancelled">İptal Edildi</option>
+  </select>
+</div>
 
             {/* Count */}
-            {searchText && (
+            {/* {searchText && ( */}
+            {(searchText || statusFilter) && (
               <p className="text-xs text-gray-500 px-1">
                 {filteredWorkOrders.length} / {workOrders.length} iş emri
               </p>
