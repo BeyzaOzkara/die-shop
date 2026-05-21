@@ -245,44 +245,6 @@ export function WorkOrdersPage() {
   const getStatusColor = (status: UiStatus) => STATUS_COLORS[status] ?? STATUS_COLORS.Waiting;
   const getStatusText = (status: UiStatus) => STATUS_TEXT[status] ?? String(status);
 
-  // const filteredWorkOrders = useMemo(() => {
-  //   const q = searchText.toLowerCase().trim();
-  //   // if (!q) return workOrders;
-  //   return workOrders.filter((wo) => {
-  //     if (statusFilter && wo.status !== statusFilter) return false;
-  //     if (!q) return true;
-  //     const haystack = [
-  //       wo.order_number,
-  //       wo.production_order?.die?.die_number ?? '',
-  //       wo.die_component?.component_type?.name ?? '',
-  //       STATUS_TEXT[wo.status] ?? wo.status,
-  //     ].join(' ').toLowerCase();
-  //     return haystack.includes(q);
-  //   });
-  // }, [workOrders, searchText, statusFilter]);
-
-  // // Reset visible count when filters change
-  // useEffect(() => {
-  //   setVisibleCount(PAGE_SIZE);
-  // }, [searchText, statusFilter]);
-
-  // // IntersectionObserver sentinel for infinite scroll
-  // const handleSentinel = useCallback((entries: IntersectionObserverEntry[]) => {
-  //   if (entries[0].isIntersecting) {
-  //     setVisibleCount((c) => c + PAGE_SIZE);
-  //   }
-  // }, []);
-
-  // useEffect(() => {
-  //   const el = sentinelRef.current;
-  //   if (!el) return;
-  //   const observer = new IntersectionObserver(handleSentinel, { threshold: 0.1 });
-  //   observer.observe(el);
-  //   return () => observer.disconnect();
-  // }, [handleSentinel]);
-
-  // const visibleWorkOrders = filteredWorkOrders.slice(0, visibleCount);
-
   const opTitle = (op: WorkOrderOperation) => {
     const name = (op.operation_name ?? '').trim();
     return (
@@ -309,18 +271,8 @@ export function WorkOrdersPage() {
     return `${ops.length}/${ops.length} - Tamamlandı`;
   };
 
-  // if (loading) {
   // ── Render ────────────────────────────────────────────────────
-  if (initialLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600 mt-4">Yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -372,7 +324,12 @@ export function WorkOrdersPage() {
 </div>
 
             {/* List */}
-          {workOrders.length === 0 && !listLoading ? (
+          {initialLoading ? (
+            <div className="py-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-7 w-7 border-b-2 border-blue-600" />
+              <p className="text-gray-500 mt-3 text-sm">Yükleniyor...</p>
+            </div>
+          ) : workOrders.length === 0 && !listLoading ? (
               <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
               {searchText || statusFilter ? (
                 <p className="text-sm text-gray-500">Sonuç bulunamadı.</p>
