@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings, Play, Check, Eye, Search, X } from 'lucide-react';
 import {
-  getWorkOrders,
+  // getWorkOrders,
+  getWorkOrdersPage,
   getWorkOrderOperations,
   updateOperationStatus,
   completeWorkOrder,
@@ -15,28 +16,98 @@ import type { WorkOrder, WorkOrderOperation, Lot } from '../types/database';
 import { mediaUrl } from "../lib/media";
 
 const VIEWER_BASE = import.meta.env.VITE_DXF_VIEWER_BASE_URL ?? "/dxf-viewer";//"http://arslan:8082";
+const PAGE_SIZE = 20;
 
 const dxfViewerUrl = (fileUrl: string) => {
   return `${VIEWER_BASE}/?file=${encodeURIComponent(fileUrl)}`;
 };
 
-export function WorkOrdersPage() {
+export function WorkOrdersPage() {  
+  // ── List state ──────────────────────────────────────────────
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [skip, setSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Filters ──────────────────────────────────────────────────
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<WorkOrder['status'] | ''>('');
+
+  // Debounced search value
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText), 350);
+    return () => clearTimeout(t);
+  }, [searchText]);
+
+  // ── Detail / operation state ─────────────────────────────────
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [operations, setOperations] = useState<WorkOrderOperation[]>([]);
   const [availableLots, setAvailableLots] = useState<Lot[]>([]);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [actualConsumption, setActualConsumption] = useState('');
   const [selectedLot, setSelectedLot] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState<WorkOrder['status'] | ''>('');
+  // const [loading, setLoading] = useState(true);
+  // const [searchText, setSearchText] = useState('');
+  // const [statusFilter, setStatusFilter] = useState<WorkOrder['status'] | ''>('');
+  // const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [lastOperatorMap, setLastOperatorMap] = useState<Record<string, LastOperatorInfo>>({});
+  // ── Fetch a single page ───────────────────────────────────────
+  const fetchPage = useCallback(
+    async (currentSkip: number, replace: boolean) => {
+      setListLoading(true);
+      try {
+        const page = await getWorkOrdersPage({
+          skip: currentSkip,
+          limit: PAGE_SIZE,
+          status: statusFilter || undefined,
+          search: debouncedSearch || undefined,
+        });
+        setWorkOrders((prev) => (replace ? page : [...prev, ...page]));
+        setHasMore(page.length === PAGE_SIZE);
+        setSkip(currentSkip + page.length);
+      } finally {
+        setListLoading(false);
+        if (replace) setInitialLoading(false);
+      }
+    },
+    [statusFilter, debouncedSearch]
+  );
+
+  // ── Re-fetch from scratch when filters change ─────────────────
+  useEffect(() => {
+  //   loadWorkOrders();
+  // }, []);
+    setInitialLoading(true);
+    setWorkOrders([]);
+    setSkip(0);
+    setHasMore(true);
+    fetchPage(0, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, debouncedSearch]);
+
+  // ── IntersectionObserver sentinel ─────────────────────────────
+  const handleSentinel = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasMore && !listLoading) {
+        fetchPage(skip, false);
+      }
+    },
+    [hasMore, listLoading, skip, fetchPage]
+  );
 
   useEffect(() => {
-    loadWorkOrders();
-  }, []);
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(handleSentinel, { threshold: 0.1 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleSentinel]);
 
+  // ── Load operations when a work order is selected ─────────────
   useEffect(() => {
     if (selectedWorkOrder) {
       loadOperations(String(selectedWorkOrder.id));
@@ -51,17 +122,17 @@ export function WorkOrdersPage() {
     }
   }, [selectedWorkOrder]);
 
-  const loadWorkOrders = async () => {
-    try {
-      setLoading(true);
-      const data = await getWorkOrders();
-      setWorkOrders(data);
-    } catch (error) {
-      console.error('İş emirleri yüklenemedi:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const loadWorkOrders = async () => {
+  //   try {
+  //     setLoading(true);
+  //     const data = await getWorkOrders();
+  //     setWorkOrders(data);
+  //   } catch (error) {
+  //     console.error('İş emirleri yüklenemedi:', error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const loadOperations = async (workOrderId: string) => {
     try {
@@ -102,6 +173,14 @@ export function WorkOrdersPage() {
       await updateOperationStatus(operationId, newStatus, operatorName);
       if (selectedWorkOrder) {
         await loadOperations(String(selectedWorkOrder.id));
+        // Refresh the card in the list so the status badge updates
+        setWorkOrders((prev) =>
+          prev.map((wo) =>
+            wo.id === selectedWorkOrder.id
+              ? { ...wo, status: newStatus === 'InProgress' ? 'InProgress' : wo.status }
+              : wo
+          )
+        );
       }
     } catch (error: any) {
       console.error('Operasyon durumu güncellenemedi:', error);
@@ -128,17 +207,24 @@ export function WorkOrdersPage() {
         selectedLot
       );
       setShowCompleteModal(false);
-      await loadWorkOrders();
+      // await loadWorkOrders();
       setSelectedWorkOrder(null);
       setActualConsumption('');
       setSelectedLot('');
       alert('İş emri başarıyla tamamlandı.');
+      // Refresh list from the top
+      setInitialLoading(true);
+      setWorkOrders([]);
+      setSkip(0);
+      setHasMore(true);
+      fetchPage(0, true);
     } catch (error: any) {
       console.error('İş emri tamamlanamadı:', error);
       alert(error.message || 'İş emri tamamlanırken bir hata oluştu.');
     }
   };
 
+  // ── UI helpers ────────────────────────────────────────────────
   type UiStatus = WorkOrder['status'] | WorkOrderOperation['status'];
   const STATUS_COLORS: Record<string, string> = {
     Waiting: 'bg-gray-100 text-gray-800',
@@ -159,23 +245,43 @@ export function WorkOrdersPage() {
   const getStatusColor = (status: UiStatus) => STATUS_COLORS[status] ?? STATUS_COLORS.Waiting;
   const getStatusText = (status: UiStatus) => STATUS_TEXT[status] ?? String(status);
 
-  const filteredWorkOrders = useMemo(() => {
-    const q = searchText.toLowerCase().trim();
-    // if (!q) return workOrders;
-    return workOrders.filter((wo) => {
-      if (statusFilter && wo.status !== statusFilter) return false;
-      if (!q) return true;
-      const haystack = [
-        wo.order_number,
-        wo.production_order?.die?.die_number ?? '',
-        wo.die_component?.component_type?.name ?? '',
-        STATUS_TEXT[wo.status] ?? wo.status,
-      ].join(' ').toLowerCase();
-      return haystack.includes(q);
-    });
-  // }, [workOrders, searchText]);
-  }, [workOrders, searchText, statusFilter]);
+  // const filteredWorkOrders = useMemo(() => {
+  //   const q = searchText.toLowerCase().trim();
+  //   // if (!q) return workOrders;
+  //   return workOrders.filter((wo) => {
+  //     if (statusFilter && wo.status !== statusFilter) return false;
+  //     if (!q) return true;
+  //     const haystack = [
+  //       wo.order_number,
+  //       wo.production_order?.die?.die_number ?? '',
+  //       wo.die_component?.component_type?.name ?? '',
+  //       STATUS_TEXT[wo.status] ?? wo.status,
+  //     ].join(' ').toLowerCase();
+  //     return haystack.includes(q);
+  //   });
+  // }, [workOrders, searchText, statusFilter]);
 
+  // // Reset visible count when filters change
+  // useEffect(() => {
+  //   setVisibleCount(PAGE_SIZE);
+  // }, [searchText, statusFilter]);
+
+  // // IntersectionObserver sentinel for infinite scroll
+  // const handleSentinel = useCallback((entries: IntersectionObserverEntry[]) => {
+  //   if (entries[0].isIntersecting) {
+  //     setVisibleCount((c) => c + PAGE_SIZE);
+  //   }
+  // }, []);
+
+  // useEffect(() => {
+  //   const el = sentinelRef.current;
+  //   if (!el) return;
+  //   const observer = new IntersectionObserver(handleSentinel, { threshold: 0.1 });
+  //   observer.observe(el);
+  //   return () => observer.disconnect();
+  // }, [handleSentinel]);
+
+  // const visibleWorkOrders = filteredWorkOrders.slice(0, visibleCount);
 
   const opTitle = (op: WorkOrderOperation) => {
     const name = (op.operation_name ?? '').trim();
@@ -188,9 +294,7 @@ export function WorkOrdersPage() {
 
 
   const getCurrentOperationText = (ops: WorkOrderOperation[]) => {
-    if (ops.length === 0) {
-      return 'Operasyon tanımlı değil';
-    }
+    if (ops.length === 0) { return 'Operasyon tanımlı değil'; }
 
     const inProgress = ops.find((op) => op.status === 'InProgress');
     if (inProgress) {
@@ -205,7 +309,9 @@ export function WorkOrdersPage() {
     return `${ops.length}/${ops.length} - Tamamlandı`;
   };
 
-  if (loading) {
+  // if (loading) {
+  // ── Render ────────────────────────────────────────────────────
+  if (initialLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="text-center py-12">
@@ -222,16 +328,6 @@ export function WorkOrdersPage() {
         <h1 className="text-3xl font-bold text-gray-900">İş Emirleri</h1>
         <p className="text-gray-600 mt-1">İş emirlerini ve operasyonları takip edin</p>
       </div>
-
-      {workOrders.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <Settings className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz iş emri yok</h3>
-          <p className="text-gray-600">
-            Üretim emri oluşturduğunuzda iş emirleri otomatik oluşturulacaktır
-          </p>
-        </div>
-      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sol: İş Emirleri listesi */}
           <div className="lg:col-span-1 space-y-3">
@@ -275,24 +371,29 @@ export function WorkOrdersPage() {
   </select>
 </div>
 
-            {/* Count */}
-            {/* {searchText && ( */}
-            {(searchText || statusFilter) && (
-              <p className="text-xs text-gray-500 px-1">
-                {filteredWorkOrders.length} / {workOrders.length} iş emri
-              </p>
-            )}
-
-            {filteredWorkOrders.length === 0 ? (
+            {/* List */}
+          {workOrders.length === 0 && !listLoading ? (
               <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+              {searchText || statusFilter ? (
                 <p className="text-sm text-gray-500">Sonuç bulunamadı.</p>
+                 ) : (
+                <>
+                  <Settings className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">Henüz iş emri yok.</p>
+                </>
+              )}
               </div>
             ) : (
-              filteredWorkOrders.map((wo) => (
+              // filteredWorkOrders.map((wo) => (
+                              <>
+                              
+              {workOrders.map((wo) => (
                 <div
                   key={wo.id}
                   onClick={() => setSelectedWorkOrder(wo)}
-                  className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${selectedWorkOrder?.id === wo.id
+                  className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${
+                      selectedWorkOrder?.id === wo.id
+                  // className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${selectedWorkOrder?.id === wo.id
                     ? 'border-blue-500 shadow-md'
                     : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -314,7 +415,20 @@ export function WorkOrdersPage() {
                     {getStatusText(wo.status)}
                   </span>
                 </div>
-              ))
+              // ))
+              ))}
+              
+                {/* Sentinel — only shown when more pages exist */}
+              {hasMore && (
+                <div ref={sentinelRef} className="py-4 text-center">
+                  {listLoading ? (
+                    <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500" />
+                  ) : (
+                    <span className="text-xs text-gray-400">Kaydırın</span>
+                  )}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -453,7 +567,6 @@ export function WorkOrdersPage() {
                                   {op.sequence_number}
                                 </span>
                                 <h4 className="font-medium text-gray-900">
-                                  {/* {op.operation_name} */}
                                   {opTitle(op)}
                                 </h4>
                               </div>
@@ -479,14 +592,8 @@ export function WorkOrdersPage() {
                             selectedWorkOrder.status !== 'Completed' && (
                               <button
                                 onClick={() => {
-                                  const operator = prompt(
-                                    'Operatör adını girin (opsiyonel):'
-                                  );
-                                  handleOperationStatusChange(
-                                    String(op.id),
-                                    'InProgress',
-                                    operator || undefined
-                                  );
+                                  const operator = prompt('Operatör adını girin (opsiyonel):');
+                                  handleOperationStatusChange(String(op.id), 'InProgress', operator || undefined);
                                 }}
                                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                               >
@@ -497,12 +604,7 @@ export function WorkOrdersPage() {
 
                           {op.status === 'InProgress' && (
                             <button
-                              onClick={() =>
-                                handleOperationStatusChange(
-                                  String(op.id),
-                                  'Completed'
-                                )
-                              }
+                              onClick={() => handleOperationStatusChange(String(op.id), 'Completed')}
                               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                             >
                               <Check className="w-4 h-4" />
@@ -535,7 +637,6 @@ export function WorkOrdersPage() {
             )}
           </div>
         </div>
-      )}
 
       {showCompleteModal && selectedWorkOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

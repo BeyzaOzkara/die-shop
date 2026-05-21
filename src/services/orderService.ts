@@ -34,13 +34,32 @@ export async function getProductionOrderById(
 // =======================
 // Work Orders
 // =======================
+export interface WorkOrderPageParams {
+  skip: number;
+  limit: number;
+  status?: string;
+  search?: string;
+}
 
+export async function getWorkOrdersPage(
+  params: WorkOrderPageParams
+): Promise<WorkOrder[]> {
+  const qs = new URLSearchParams();
+  qs.set('skip', String(params.skip));
+  qs.set('limit', String(params.limit));
+  if (params.status) qs.set('status', params.status);
+  if (params.search) qs.set('search', params.search);
+  return api.get<WorkOrder[]>(`/work-orders?${qs.toString()}`);
+}
+
+/** @deprecated use getWorkOrdersPage instead */
 export async function getWorkOrders(
   productionOrderId?: string
 ): Promise<WorkOrder[]> {
   // FastAPI:
   // GET /work-orders (backend nested ilişkilerle dönüyor)
-  const all = await api.get<WorkOrder[]>('/work-orders');
+  // const all = await api.get<WorkOrder[]>('/work-orders');
+  const all = await api.get<WorkOrder[]>('/work-orders?limit=9999');
 
   if (productionOrderId) {
     const pid = Number(productionOrderId);
