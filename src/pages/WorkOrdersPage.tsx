@@ -271,9 +271,6 @@ export function WorkOrdersPage() {
     return `${ops.length}/${ops.length} - Tamamlandı`;
   };
 
-  // ── Render ────────────────────────────────────────────────────
-
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
@@ -285,43 +282,43 @@ export function WorkOrdersPage() {
           <div className="lg:col-span-1 space-y-3">
             {/* Search */}
             <div className="flex gap-3 items-center">
-  {/* Search */}
-  <div className="relative flex-1">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-    
-    <input
-      type="text"
-      placeholder="Ara: iş emri, kalıp, bileşen..."
-      value={searchText}
-      onChange={(e) => setSearchText(e.target.value)}
-      className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-    />
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              
+              <input
+                type="text"
+                placeholder="Ara: iş emri, kalıp, bileşen..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              />
 
-    {searchText && (
-      <button
-        onClick={() => setSearchText('')}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    )}
-  </div>
+              {searchText && (
+                <button
+                  onClick={() => setSearchText('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-  {/* Status filter */}
-  <select
-    value={statusFilter}
-    onChange={(e) =>
-      setStatusFilter(e.target.value as WorkOrder['status'] | '')
-    }
-    className="w-48 py-2 px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-  >
-    <option value="">Tüm Durumlar</option>
-    <option value="Waiting">Bekliyor</option>
-    <option value="InProgress">Devam Ediyor</option>
-    <option value="Completed">Tamamlandı</option>
-    <option value="Cancelled">İptal Edildi</option>
-  </select>
-</div>
+            {/* Status filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as WorkOrder['status'] | '')
+              }
+              className="w-48 py-2 px-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="">Tüm Durumlar</option>
+              <option value="Waiting">Bekliyor</option>
+              <option value="InProgress">Devam Ediyor</option>
+              <option value="Completed">Tamamlandı</option>
+              <option value="Cancelled">İptal Edildi</option>
+            </select>
+          </div>
 
             {/* List */}
           {initialLoading ? (
@@ -341,9 +338,7 @@ export function WorkOrdersPage() {
               )}
               </div>
             ) : (
-              // filteredWorkOrders.map((wo) => (
-                              <>
-                              
+            <>
               {workOrders.map((wo) => (
                 <div
                   key={wo.id}
