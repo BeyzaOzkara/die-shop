@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import type { ComponentType, SteelStockItem, DieType, Die, FileItem } from '../types/database';
+import type { ComponentType, StockItem, DieType, Die, FileItem } from '../types/database';
 import { getActiveDieTypes, getComponentTypesForDieType } from '../services/masterDataService';
-import { getSteelStockItems } from '../services/stockService';
+import { getStockItems } from '../services/stockService';
 import { calculateTheoreticalConsumption } from '../lib/calculations';
 import { deleteDieFile, uploadDieFiles } from '../services/dieService';
 
@@ -30,6 +30,8 @@ interface DieFormProps {
     figureCount?: number | null;
     customerName?: string;
     pressCode?: string;
+    expectedCompletionDate?: string | null;
+    description?: string | null;
 
     isRevisioned: boolean;
   }) => void | Promise<void>;
@@ -46,6 +48,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
   const [figureCount, setFigureCount] = useState(initialData?.figure_count?.toString() || '');
   const [customerName, setCustomerName] = useState(initialData?.customer_name || '');
   const [pressCode, setPressCode] = useState(initialData?.press_code || '');
+  const [expectedCompletionDate, setExpectedCompletionDate] = useState(initialData?.expected_completion_date || '');
+  const [description, setDescription] = useState(initialData?.description || '');
 
   const [isRevisioned, setIsRevisioned] = useState(initialData?.is_revisioned || false);
   const [designFiles, setDesignFiles] = useState<File[]>([]);
@@ -56,7 +60,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
 
   const [dieTypes, setDieTypes] = useState<DieType[]>([]);
   const [availableComponents, setAvailableComponents] = useState<ComponentType[]>([]);
-  const [steelItems, setSteelItems] = useState<SteelStockItem[]>([]);
+  const [steelItems, setSteelItems] = useState<StockItem[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<SelectedComponent[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,13 +78,14 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [dieTypesData, steel] = await Promise.all([
+      const [dieTypesData, steel, wips] = await Promise.all([
         getActiveDieTypes(),
-        getSteelStockItems(),
+        getStockItems({ item_type: 'RAW_MATERIAL' }),
+        import('../services/preMachiningService').then(m => m.getWipShelf())
       ]);
       setDieTypes(dieTypesData);
-      setSteelItems(steel);
-       
+      setSteelItems([...steel, ...wips]);
+
       // Initialize components from initialData if in edit mode
       if (initialData?.components) {
         const mappedComponents: SelectedComponent[] = initialData.components.map(c => ({
@@ -88,7 +93,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           componentTypeId: String(c.component_type_id),
           stockItemId: String(c.stock_item_id),
           packageLengthMm: c.package_length_mm,
-          diameterMm: c.stock_item?.diameter_mm || 0,
+          diameterMm: Number(c.stock_item?.attributes?.diameter_mm) || 0,
           theoreticalConsumptionKg: c.theoretical_consumption_kg,
         }));
         setSelectedComponents(mappedComponents);
@@ -132,7 +137,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
     ]);
   };
 
-    const handleDeleteFile = async (fileId: number) => {
+  const handleDeleteFile = async (fileId: number) => {
     if (!confirm('Bu dosyayı silmek istediğinizden emin misiniz?')) return;
     if (!initialData) return;
 
@@ -184,12 +189,12 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
     if (field === 'stockItemId') {
       const stockItem = steelItems.find((s) => s.id === Number(value));
       if (stockItem) {
-        updated[index].diameterMm = stockItem.diameter_mm;
+        updated[index].diameterMm = Number(stockItem.attributes?.diameter_mm || 0);
 
         if (updated[index].packageLengthMm > 0) {
           updated[index].theoreticalConsumptionKg = calculateTheoreticalConsumption(
             updated[index].packageLengthMm,
-            stockItem.diameter_mm
+            Number(stockItem.attributes?.diameter_mm || 0)
           );
         }
       }
@@ -223,6 +228,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           figureCount: figureCount ? Number(figureCount) : null,
           customerName,
           pressCode,
+          description: description || null,
+          expectedCompletionDate: expectedCompletionDate || null,
           isRevisioned,
         });
       } else {
@@ -240,6 +247,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           figureCount: figureCount ? Number(figureCount) : null,
           customerName,
           pressCode,
+          description: description || null,
+          expectedCompletionDate: expectedCompletionDate || null,
           isRevisioned,
         });
 
@@ -267,6 +276,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           figureCount: figureCount ? Number(figureCount) : null,
           customerName,
           pressCode,
+          description: description || null,
+          expectedCompletionDate: expectedCompletionDate || null,
           isRevisioned,
         });
       }
@@ -308,7 +319,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
       {/* ===================== */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Kalıp Bilgileri</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2  xl:grid-cols-3 gap-4">
           {/* Kalıp Numarası */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -353,6 +364,24 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Kalıp Tipi *
+            </label>
+            <select
+              value={dieTypeId}
+              onChange={(e) => setDieTypeId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              {dieTypes.map((dt) => (
+                <option key={dt.id} value={String(dt.id)}>
+                  {dt.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Pres Kodu *</label>
             <input
               type="text"
@@ -376,20 +405,14 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Kalıp Tipi *
+              Ön Görülen Termin
             </label>
-            <select
-              value={dieTypeId}
-              onChange={(e) => setDieTypeId(e.target.value)}
+            <input
+              type="date"
+              value={expectedCompletionDate}
+              onChange={(e) => setExpectedCompletionDate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            >
-              {dieTypes.map((dt) => (
-                <option key={dt.id} value={String(dt.id)}>
-                  {dt.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
@@ -435,7 +458,21 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
             />
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 xl:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Açıklama
+            </label>
+
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Opsiyonel açıklama..."
+            />
+          </div>
+
+          <div className="md:col-span-2 xl:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tasarım Dosyaları (opsiyonel)
             </label>
@@ -560,7 +597,9 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
                         <option value="">Seçiniz</option>
                         {steelItems.map((item) => (
                           <option key={item.id} value={String(item.id)}>
-                            {item.alloy} - Ø{item.diameter_mm}mm
+                            {item.item_type === 'WIP' ? '[WIP - RAF] ' : ''} 
+                            {item.attributes?.alloy || item.category?.name} - Ø{item.attributes?.diameter_mm}mm
+                            {item.item_type === 'WIP' && item.attributes?.length_mm ? ` (L:${item.attributes.length_mm}mm)` : ''}
                           </option>
                         ))}
                       </select>
@@ -595,10 +634,16 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
                         Teorik Tüketim (kg)
                       </label>
                       <input
-                        type="text"
-                        value={component.theoreticalConsumptionKg.toFixed(2)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                        readOnly
+                        type="number"
+                        value={component.theoreticalConsumptionKg || ''}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const num = v === '' ? 0 : Number(v);
+                          updateComponent(index, 'theoreticalConsumptionKg', Number.isFinite(num) ? num : 0);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        min="0"
+                        step="0.01"
                       />
                     </div>
                   </div>

@@ -203,7 +203,7 @@ export function ProductionOrdersPage() {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
       order.order_number.toLowerCase().includes(searchLower) ||
-      order.die?.die_number.toLowerCase().includes(searchLower);
+      (order.die?.die_number || 'Stok (Ön İşleme)').toLowerCase().includes(searchLower);
 
     const matchesStatus = statusFilter === 'All' || order.status === statusFilter;
 
@@ -231,8 +231,8 @@ export function ProductionOrdersPage() {
           </p>
         </div>
 
-      {/* {orders.length === 0 ? ( */}
-      {/* Filters */}
+        {/* {orders.length === 0 ? ( */}
+        {/* Filters */}
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -268,8 +268,8 @@ export function ProductionOrdersPage() {
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {orders.length === 0 ? "Henüz üretim emri yok" : "Arama sonucu bulunamadı"}
           </h3>
-          <p className="text-gray-600">  
-          {orders.length === 0 ? "Kalıp sayfasından yeni üretim emri oluşturun" : "Filtreleri değiştirmeyi deneyin"}
+          <p className="text-gray-600">
+            {orders.length === 0 ? "Kalıp sayfasından yeni üretim emri oluşturun" : "Filtreleri değiştirmeyi deneyin"}
           </p>
         </div>
       ) : (
@@ -281,9 +281,9 @@ export function ProductionOrdersPage() {
                 key={order.id}
                 onClick={() => setSelectedOrder(order)}
                 className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${selectedOrder?.id === order.id
-                    ? 'border-blue-500 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
+                  ? 'border-blue-500 shadow-md'
+                  : 'border-gray-200 hover:border-gray-300'
+                  }`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
@@ -291,18 +291,18 @@ export function ProductionOrdersPage() {
                       {order.order_number}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {order.die?.die_number}
+                      {order.die?.die_number ?? (order.order_number.startsWith('PM-') ? 'Stok (Ön İşleme)' : '')}
                     </p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
                 <div className="flex justify-between items-center mb-2">
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                    order.status
-                  )}`}
-                >
-                  {getStatusText(order.status)}
+                  <span
+                    className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                      order.status
+                    )}`}
+                  >
+                    {getStatusText(order.status)}
                   </span>
                   <DateDisplay date={order.created_at} showTime={false} className="text-xs text-gray-400" />
                 </div>
@@ -320,7 +320,7 @@ export function ProductionOrdersPage() {
                       {selectedOrder.order_number}
                     </h2>
                     <p className="text-gray-600 mt-1">
-                      Kalıp: {selectedOrder.die?.die_number}
+                      Kalıp: {selectedOrder.die?.die_number ?? (selectedOrder.order_number.startsWith('PM-') ? 'Stok (Ön İşleme)' : '')}
                     </p>
                   </div>
 
@@ -332,120 +332,105 @@ export function ProductionOrdersPage() {
                     {getStatusText(selectedOrder.status)}
                   </span>
                 </div>
-                
-                {/* {selectedOrder?.die?.files?.length ? (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Kalıp Dosyaları</h3>
-                    <div className="text-sm space-y-1">
-                      {selectedOrder.die.files.map((f) => {
-                        const fileUrl = mediaUrl(f.storage_path);
-                        const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
-                        const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
-                        const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
-  
-                        return (
-                          <a
-                            key={f.id}
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                            title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
-                          >
-                            <Eye className="w-4 h-4" />
-                            {f.original_name}
-                            {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
-                          </a>
-                        ); }
-                    )}
-                    </div>
-                  </div>
-                ): null} */}
-                                {/* Kalıp Dosyaları + Dosya Ekle (Seçenek 1) */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">Kalıp Dosyaları</h3>
 
-                    {(() => {
-                      const canUpload =
-                        selectedOrder.status === "InProgress" || selectedOrder.status === "Completed";
-                      const dieId = selectedOrder.die?.id;
+                {/* Kalıp Dosyaları + Dosya Ekle (Seçenek 1) */}
+                  {selectedOrder.die && (
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">Kalıp Dosyaları</h3>
 
-                      return (
-                        <button
-                          disabled={!canUpload || !dieId}
-                          onClick={() => {
-                            if (!dieId) return;
-                            openUpload(dieId, selectedOrder.die?.die_number);
-                          }}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                            ${canUpload && dieId
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            }`}
-                          title={
-                            !dieId
-                              ? "Kalıp bilgisi bulunamadı"
-                              : !canUpload
-                              ? "Dosya eklemek için önce üretim onayı verip planlamalısın."
-                              : "Kalıba dosya ekle"
-                          }
-                        >
-                          Dosya Ekle
-                        </button>
-                      );
-                    })()}
-                  </div>
+                        {(() => {
+                          const canUpload =
+                            selectedOrder.status === "InProgress" || selectedOrder.status === "Completed";
+                          const dieId = selectedOrder.die?.id;
 
-                  <p className="text-xs text-gray-500 mb-2">
-                    Yüklenen dosyalar kalıba eklenir ve aynı kalıbın diğer üretim emirlerinde de görünür.
-                  </p>
+                          return (
+                            <button
+                              disabled={!canUpload || !dieId}
+                              onClick={() => {
+                                if (!dieId) return;
+                                openUpload(dieId, selectedOrder.die?.die_number);
+                              }}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                                ${canUpload && dieId
+                                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                }`}
+                              title={
+                                !dieId
+                                  ? "Kalıp bilgisi bulunamadı"
+                                  : !canUpload
+                                    ? "Dosya eklemek için önce üretim onayı verip planlamalısın."
+                                    : "Kalıba dosya ekle"
+                              }
+                            >
+                              Dosya Ekle
+                            </button>
+                          );
+                        })()}
+                      </div>
 
-                  {selectedOrder.die?.files?.length ? (
-                    <div className="text-sm space-y-1">
-                      {selectedOrder.die.files.map((f) => {
-                        const fileUrl = mediaUrl(f.storage_path);
-                        const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
-                        const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
-                        const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
+                      <p className="text-xs text-gray-500 mb-2">
+                        Yüklenen dosyalar kalıba eklenir ve aynı kalıbın diğer üretim emirlerinde de görünür.
+                      </p>
 
-                        return (
-                          <a
-                            key={f.id}
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                            title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
-                          >
-                            <Eye className="w-4 h-4" />
-                            {f.original_name}
-                            {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
-                          </a>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
-                      Henüz dosya yok.
+                      {selectedOrder.die?.files?.length ? (
+                        <div className="text-sm space-y-1">
+                          {selectedOrder.die.files.map((f) => {
+                            const fileUrl = mediaUrl(f.storage_path);
+                            const absoluteFileUrl = new URL(fileUrl, window.location.origin).toString();
+                            const isDxf = (f.original_name ?? "").toLowerCase().endsWith(".dxf");
+                            const href = isDxf ? dxfViewerUrl(absoluteFileUrl) : absoluteFileUrl;
+
+                            return (
+                              <a
+                                key={f.id}
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                title={isDxf ? "DXF Viewer ile aç" : "Dosyayı indir/aç"}
+                              >
+                                <Eye className="w-4 h-4" />
+                                {f.original_name}
+                                {isDxf ? <span className="text-xs text-gray-500">(Viewer)</span> : null}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          Henüz dosya yok.
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
 
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-sm text-gray-600 mb-1">Kalıp Tipi</p>
                     <p className="font-medium text-gray-900">
-                      {getDieTypeName(selectedOrder)}
+                      {selectedOrder.die ? getDieTypeName(selectedOrder) : 'Ön İşleme'}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-600 mb-1">Kalıp Çapı</p>
+                    <p className="text-sm text-gray-600 mb-1">{selectedOrder.die ? 'Kalıp Çapı' : 'Kullanılan Stok Çapı'}</p>
                     <p className="font-medium text-gray-900">
-                      {selectedOrder.die?.die_diameter_mm} mm
+                      {selectedOrder.die?.die_diameter_mm ? `${selectedOrder.die.die_diameter_mm} mm` : (
+                        workOrders[0]?.stock_item?.attributes?.diameter_mm ? `Ø${workOrders[0].stock_item.attributes.diameter_mm} mm` : '-'
+                      )}
                     </p>
                   </div>
+
+                  {!selectedOrder.die && workOrders[0]?.planned_cut_length_mm && (
+                    <div className="bg-blue-50 rounded-lg p-4 col-span-2">
+                      <p className="text-sm text-blue-800 mb-1">Planlanan Kesim</p>
+                      <p className="font-medium text-blue-900">
+                        {workOrders[0].planned_cut_length_mm} mm / {workOrders[0].planned_cut_weight_kg} kg
+                      </p>
+                    </div>
+                  )}
 
                   {/* Timestamps */}
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -463,7 +448,25 @@ export function ProductionOrdersPage() {
                       />
                     </div>
                   )}
+
+                  {(selectedOrder.die as any)?.expected_completion_date && (
+                    <div className="bg-amber-50 rounded-lg p-4">
+                      <p className="text-sm text-amber-700 mb-1">Ön Görülen Termin</p>
+                      <p className="font-medium text-amber-900">
+                        {(selectedOrder.die as any).expected_completion_date}
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {(selectedOrder.die as any)?.description && (
+                  <div className="mb-6 bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-600 mb-1">Açıklama</p>
+                    <p className="text-gray-900 text-sm whitespace-pre-wrap">
+                      {(selectedOrder.die as any).description}
+                    </p>
+                  </div>
+                )}
 
                 {selectedOrder.status === 'Waiting' && workOrders.length === 0 && (
                   <div className="mb-6">
@@ -510,52 +513,52 @@ export function ProductionOrdersPage() {
                   ) : (
                     <div className="space-y-3">
                       {workOrders.map((wo) => {
-                        return(
-                        <div
-                          key={wo.id}
-                          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h4 className="font-medium text-gray-900">
-                                {wo.order_number}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                {wo.die_component?.component_type?.name}
-                              </p>
-                            </div>
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                wo.status as ProductionOrder['status']
-                              )}`}
-                            >
-                              {getStatusText(
-                                wo.status as ProductionOrder['status']
-                              )}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <span className="text-gray-600">
-                                Teorik Tüketim:
-                              </span>
-                              <span className="ml-2 font-medium text-gray-900">
-                                {wo.theoretical_consumption_kg.toFixed(2)} kg
+                        return (
+                          <div
+                            key={wo.id}
+                            className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <h4 className="font-medium text-gray-900">
+                                  {wo.order_number}
+                                </h4>
+                                <p className="text-sm text-gray-600">
+                                  {wo.die_component?.component_type?.name}
+                                </p>
+                              </div>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                  wo.status as ProductionOrder['status']
+                                )}`}
+                              >
+                                {getStatusText(
+                                  wo.status as ProductionOrder['status']
+                                )}
                               </span>
                             </div>
-                            {wo.actual_consumption_kg && (
+                            <div className="grid grid-cols-2 gap-2 text-sm">
                               <div>
                                 <span className="text-gray-600">
-                                  Gerçek Tüketim:
+                                  Teorik Tüketim:
                                 </span>
                                 <span className="ml-2 font-medium text-gray-900">
-                                  {wo.actual_consumption_kg.toFixed(2)} kg
+                                  {wo.theoretical_consumption_kg.toFixed(2)} kg
                                 </span>
                               </div>
-                            )}
-                          </div>
+                              {wo.actual_consumption_kg && (
+                                <div>
+                                  <span className="text-gray-600">
+                                    Gerçek Tüketim:
+                                  </span>
+                                  <span className="ml-2 font-medium text-gray-900">
+                                    {wo.actual_consumption_kg.toFixed(2)} kg
+                                  </span>
+                                </div>
+                              )}
+                            </div>
 
-                          <div className="text-xs text-gray-500 flex gap-3 border-t border-gray-100 pt-2 mt-2">
+                            <div className="text-xs text-gray-500 flex gap-3 border-t border-gray-100 pt-2 mt-2">
                               <span>
                                 Oluşturulma: <DateDisplay date={wo.created_at} showTime={true} />
                               </span>
@@ -565,7 +568,7 @@ export function ProductionOrdersPage() {
                                 </span>
                               )}
                             </div>
-                        </div>
+                          </div>
                         )
                       })}
                     </div>

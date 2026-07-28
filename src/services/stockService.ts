@@ -1,46 +1,109 @@
 // src/services/stockService.ts
 import { api } from '../lib/api';
-import type { SteelStockItem, Lot, StockMovement } from '../types/database';
+import type { 
+  StockItem, 
+  Lot, 
+  StockTransaction, 
+  ItemCategory, 
+  MaterialGrade, 
+  Location 
+} from '../types/database';
 
-// Çelik ürünler
-export async function getSteelStockItems(): Promise<SteelStockItem[]> {
-  return api.get<SteelStockItem[]>('/inventory/steel-stock-items');
+// ===========================
+// MASTER DATA
+// ===========================
+
+export async function getLocations(): Promise<Location[]> {
+  return api.get<Location[]>('/inventory/locations');
 }
 
-export async function createSteelStockItem(payload: {
-  alloy: string;
-  diameter_mm: number;
+export async function createLocation(payload: {
+  name: string;
+  location_type: string;
   description?: string;
-}): Promise<SteelStockItem> {
-  return api.post<SteelStockItem>('/inventory/steel-stock-items', payload);
+  work_center_id?: number;
+}): Promise<Location> {
+  return api.post<Location>('/inventory/locations', payload);
 }
 
-// Lotlar
-// export async function getLots(): Promise<Lot[]> {
-//   return api.get<Lot[]>('/inventory/lots');
-// }
+export async function updateLocation(id: number, payload: Partial<{
+  name: string;
+  location_type: string;
+  description: string;
+  work_center_id: number;
+  is_active: boolean;
+}>): Promise<Location> {
+  return api.patch<Location>(`/inventory/locations/${id}`, payload);
+}
+
+export async function deleteLocation(id: number): Promise<void> {
+  return api.delete(`/inventory/locations/${id}`);
+}
+
+export async function getItemCategories(): Promise<ItemCategory[]> {
+  return api.get<ItemCategory[]>('/inventory/categories');
+}
+
+export async function createItemCategory(payload: {
+  name: string;
+  base_uom: string;
+  is_cuttable?: boolean;
+}): Promise<ItemCategory> {
+  return api.post<ItemCategory>('/inventory/categories', payload);
+}
+
+export async function updateItemCategory(id: number, payload: Partial<{
+  name: string;
+  base_uom: string;
+  is_cuttable: boolean;
+}>): Promise<ItemCategory> {
+  return api.patch<ItemCategory>(`/inventory/categories/${id}`, payload);
+}
+
+export async function deleteItemCategory(id: number): Promise<void> {
+  return api.delete(`/inventory/categories/${id}`);
+}
+
+export async function getMaterialGrades(): Promise<MaterialGrade[]> {
+  return api.get<MaterialGrade[]>('/inventory/material-grades');
+}
+
+export async function createMaterialGrade(payload: {
+  name: string;
+  composition?: Record<string, number>;
+}): Promise<MaterialGrade> {
+  return api.post<MaterialGrade>('/inventory/material-grades', payload);
+}
+
+export async function updateMaterialGrade(id: number, payload: Partial<{
+  name: string;
+  composition: Record<string, number>;
+}>): Promise<MaterialGrade> {
+  return api.patch<MaterialGrade>(`/inventory/material-grades/${id}`, payload);
+}
+
+export async function deleteMaterialGrade(id: number): Promise<void> {
+  return api.delete(`/inventory/material-grades/${id}`);
+}
+
+// ===========================
+// LOTS
+// ===========================
+
 export async function getLots(filters?: {
-  alloy?: string;
-  diameter_mm?: number;
-  supplier?: string;
+  lot_number?: string;
   certificate_number?: string;
-  only_with_remaining?: boolean;
-  received_from?: string; // YYYY-MM-DD veya ISO
-  received_to?: string;   // YYYY-MM-DD veya ISO
 }): Promise<Lot[]> {
   return api.get<Lot[]>('/inventory/lots', filters ?? {});
 }
 
 export async function createLot(payload: {
-  stock_item_id: number;
-  certificate_number: string;
-  supplier: string;
+  lot_number: string;
+  certificate_number?: string;
+  receive_date: string; // YYYY-MM-DD
   supplier_id?: number | null;
-  length_mm: number;
-  gross_weight_kg: number;
-  remaining_kg: number;
-  // certificate_file_url?: string;
-  received_date: string; // "YYYY-MM-DD" formatında
+  material_grade_id?: number | null;
+  notes?: string;
 }, certificateFiles: File[] = []): Promise<Lot> {
   const formData = new FormData();
   formData.append('payload', JSON.stringify(payload));
@@ -49,53 +112,55 @@ export async function createLot(payload: {
     formData.append('certificate_files', f);
   }
 
-  // api wrapper'ın axios ise, header'ı elle vermesen de olur.
-  // Ama bazı wrapper'larda gerekebiliyor:
   return api.post<Lot>('/inventory/lots', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 }
 
-// Belirli stok item için kalan lotlar
-export async function getAvailableLots(
-  stockItemId: string | number
-): Promise<Lot[]> {
-  return api.get<Lot[]>(`/inventory/lots/by-stock-item/${stockItemId}`, {
-    only_with_remaining: true,
-  });
+// ===========================
+// STOCK ITEMS
+// ===========================
+
+export async function getStockItems(filters?: {
+  item_type?: string;
+  category_id?: number;
+  lot_id?: number;
+}): Promise<StockItem[]> {
+  return api.get<StockItem[]>('/inventory/stock-items', filters ?? {});
 }
 
-// Stok hareketleri
-export async function getStockMovements(): Promise<StockMovement[]> {
-  return api.get<StockMovement[]>('/inventory/stock-movements');
+export async function createStockItem(payload: {
+  item_type: 'RAW_MATERIAL' | 'WIP' | 'FINISHED_GOOD';
+  category_id: number;
+  quantity: number;
+  location_id?: number | null;
+  lot_id?: number | null;
+  attributes?: Record<string, any>;
+}): Promise<StockItem> {
+  return api.post<StockItem>('/inventory/stock-items', payload);
 }
 
-export async function updateLotStock(
-  lotId: number | string,
-  remainingKg: number
-): Promise<Lot> {
-  return api.patch<Lot>(`/inventory/lots/${lotId}/remaining`, {
-    remaining_kg: remainingKg,
-  });
+// ===========================
+// STOCK TRANSACTIONS (LEDGER)
+// ===========================
+
+export async function getStockTransactions(filters?: {
+  stock_item_id?: number;
+}): Promise<StockTransaction[]> {
+  return api.get<StockTransaction[]>('/inventory/stock-transactions', filters ?? {});
 }
 
-export async function deleteLot(lotId: number | string): Promise<void> {
-  await api.del(`/inventory/lots/${lotId}`);
+// ===========================
+// OPERATIONS (CUT / BATCH)
+// ===========================
+
+export async function cutSteel(payload: {
+  parent_stock_item_id: number;
+  cut_quantity: number;
+  child_attributes?: Record<string, any>;
+  work_order_id?: number;
+  notes?: string;
+}): Promise<{ parent: StockItem; child: StockItem; transaction: StockTransaction }> {
+  return api.post('/inventory/cut-steel', payload);
 }
 
-export async function updateLot(
-  lotId: number | string,
-  payload: Partial<{
-    stock_item_id: number;
-    certificate_number: string;
-    supplier_id: number | null;
-    supplier: string;
-    length_mm: number;
-    gross_weight_kg: number;
-    remaining_kg: number;
-    received_date: string; // YYYY-MM-DD
-    certificate_file_url?: string;
-  }>
-): Promise<Lot> {
-  return api.patch<Lot>(`/inventory/lots/${lotId}`, payload);
-}

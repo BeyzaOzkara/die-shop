@@ -77,10 +77,10 @@ async function request<T>(
 
   if (!res.ok) {
     let data: any = null;
+    const text = await res.text();
     try {
-      data = await res.json();
+      data = text ? JSON.parse(text) : null;
     } catch {
-      const text = await res.text();
       data = text || null;
     }
 

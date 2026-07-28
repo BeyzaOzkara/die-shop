@@ -9,7 +9,6 @@ export async function getWorkCenters(): Promise<WorkCenter[]> {
 export async function createWorkCenter(payload: {
   name: string;
   status: WorkCenter['status'];
-  location?: string;
   capacity_per_hour?: number;
   setup_time_minutes?: number;
   cost_per_hour?: number;
@@ -24,7 +23,6 @@ export async function updateWorkCenter(
   updates: Partial<{
     name: string;
     status: WorkCenter['status'];
-    location?: string | null;
     capacity_per_hour?: number | null;
     setup_time_minutes?: number | null;
     cost_per_hour?: number | null;

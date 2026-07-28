@@ -1,10 +1,8 @@
 import { api } from '../lib/api';
-import { updateLotStock } from './stockService';
 import type {
   ProductionOrder,
   WorkOrder,
   WorkOrderOperation,
-  StockMovement,
 } from '../types/database';
 
 // =======================
@@ -35,18 +33,33 @@ export async function getProductionOrderById(
 // Work Orders
 // =======================
 
+export interface WorkOrderPageParams {
+  skip: number;
+  limit: number;
+  status?: string;
+  search?: string;
+}
+
+export async function getWorkOrdersPage(
+  params: WorkOrderPageParams
+): Promise<WorkOrder[]> {
+  const qs = new URLSearchParams();
+  qs.set('skip', String(params.skip));
+  qs.set('limit', String(params.limit));
+  if (params.status) qs.set('status', params.status);
+  if (params.search) qs.set('search', params.search);
+  return api.get<WorkOrder[]>(`/work-orders?${qs.toString()}`);
+}
+
+/** @deprecated use getWorkOrdersPage instead */
 export async function getWorkOrders(
   productionOrderId?: string
 ): Promise<WorkOrder[]> {
-  // FastAPI:
-  // GET /work-orders (backend nested ilişkilerle dönüyor)
-  const all = await api.get<WorkOrder[]>('/work-orders');
-
+  const all = await api.get<WorkOrder[]>('/work-orders?limit=9999');
   if (productionOrderId) {
     const pid = Number(productionOrderId);
     return all.filter((w) => w.production_order_id === pid);
   }
-
   return all;
 }
 
@@ -124,36 +137,7 @@ export async function updateWorkOrderStatus(
   return api.patch<WorkOrder>(`/work-orders/${Number(id)}`, updates);
 }
 
-// =======================
-// Complete Work Order + Stock Movement
-// =======================
 
-export async function completeWorkOrder(
-  workOrderId: string,
-  actualConsumptionKg: number,
-  lotId: string,
-  notes?: string
-): Promise<void> {
-  // 1) Lot stok güncelle
-  await updateLotStock(lotId, actualConsumptionKg);
-
-  // 2) İş emrini güncelle (gerçek tüketim, lot, status Completed)
-  await api.patch<WorkOrder>(`/work-orders/${Number(workOrderId)}`, {
-    actual_consumption_kg: actualConsumptionKg,
-    lot_id: Number(lotId),
-    status: 'Completed',
-    completed_at: new Date().toISOString(),
-  });
-
-  // 3) Stok hareketini kaydet
-  await api.post<StockMovement>('/inventory/stock-movements', {
-    lot_id: Number(lotId),
-    work_order_id: Number(workOrderId),
-    quantity_kg: actualConsumptionKg,
-    movement_date: new Date().toISOString(),
-    notes,
-  });
-}
 
 // =======================
 // Production Order Status
@@ -164,14 +148,11 @@ export async function updateProductionOrderStatus(
   status: ProductionOrder['status']
 ): Promise<ProductionOrder> {
   const updates: any = { status };
-  console.log("update: ", updates)
   if (status === 'InProgress') {
     updates.started_at = new Date().toISOString();
   } else if (status === 'Completed') {
     updates.completed_at = new Date().toISOString();
   }
-  
-  console.log("update2: ", updates)
   // FastAPI:
   // PATCH /production-orders/{id}
   return api.patch<ProductionOrder>(
@@ -180,15 +161,7 @@ export async function updateProductionOrderStatus(
   );
 }
 
-// =======================
-// Stock Movements
-// =======================
 
-export async function getStockMovements(): Promise<StockMovement[]> {
-  // FastAPI:
-  // GET /inventory/stock-movements
-  return api.get<StockMovement[]>('/inventory/stock-movements');
-}
 
 // =======================
 // Planning & Generation

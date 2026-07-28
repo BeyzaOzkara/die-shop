@@ -15,6 +15,8 @@ import {
   ListTodo,
   Factory,
   Ban,
+  Search,
+  Info,
 } from 'lucide-react';
 import {
   getAvailableOperationsForOperator,
@@ -22,9 +24,10 @@ import {
   getEligibleWorkCentersForOperator,            // ✅ NEW (senin endpoint)
   startOperation,
   pauseOperation,
+  resumeOperation,
   completeOperation,
   cancelOperation,                              // ✅ NEW: zaten service’te var
-  
+
   getAvailableLotsForOperation,
   completeSawOperation,
 } from '../../services/operatorService';
@@ -67,6 +70,9 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState('');
 
+  // ✅ Available tab search
+  const [availableSearch, setAvailableSearch] = useState('');
+
   // Modal state
   const [selectedOperation, setSelectedOperation] = useState<WorkOrderOperation | null>(null);
   const [selectedWorkCenterId, setSelectedWorkCenterId] = useState<number | null>(null);
@@ -88,10 +94,11 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
     operationTypes?.[0]?.id ?? null
   );
 
-  const SAW_OPERATION_TYPE_ID = 33;
+
 
   const [showSawCompleteModal, setShowSawCompleteModal] = useState(false);
   const [sawTargetOperation, setSawTargetOperation] = useState<WorkOrderOperation | null>(null);
+  const [detailsModalOperation, setDetailsModalOperation] = useState<WorkOrderOperation | null>(null);
 
   const [lotsLoading, setLotsLoading] = useState(false);
   const [lotsError, setLotsError] = useState('');
@@ -100,12 +107,11 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
   const [cutKg, setCutKg] = useState<string>(''); // input string
 
   const isSawOperation = (op: WorkOrderOperation) => {
-    // En neti: operation_type_id
-    if (op.operation_type_id === SAW_OPERATION_TYPE_ID) return true;
-
-    // fallback (bazı payloadlarda nested olabilir)
+    if (op.operation_type?.is_cutting === true) return true;
+    
+    // fallback (bazı eski kayıtlarda is_cutting olmayabilir)
     const name = (op.operation_type?.name ?? op.operation_name ?? '').toLowerCase();
-    return name.includes('testere');
+    return name.includes('testere') || name.includes('kesim');
   };
 
 
@@ -236,7 +242,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
     try {
       setActionLoading(selectedOperation.id);
 
-      await startOperation(selectedOperation.id, selectedWorkCenterId, operator.name);
+      await startOperation(selectedOperation.id, selectedWorkCenterId, operator.id);
 
       // Available listesinden düşür (unassigned + waiting listesiydi)
       setOperations((prev) => prev.filter((x) => x.id !== selectedOperation.id));
@@ -252,11 +258,16 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
     }
   };
 
-  // Assigned tab: Start/Resume
+  // Assigned tab: Start / Resume
+  // Distinguish: Paused ops use resumeOperation to log OPERATION_RESUME correctly
   const handleStartAssigned = async (op: WorkOrderOperation, workCenterId: number) => {
     try {
       setActionLoading(op.id);
-      await startOperation(op.id, workCenterId, operator.name);
+      if (op.status === 'Paused') {
+        await resumeOperation(op.id, operator.id);
+      } else {
+        await startOperation(op.id, workCenterId, operator.id);
+      }
       await refreshAll();
     } catch (err: any) {
       console.error('Operasyon başlatılamadı:', err);
@@ -272,7 +283,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
 
     try {
       setActionLoading(op.id);
-      await pauseOperation(op.id);
+      await pauseOperation(op.id, operator.id);
       await refreshAll();
     } catch (err: any) {
       console.error('Operasyon duraklatılamadı:', err);
@@ -283,36 +294,36 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
   };
 
   const openSawCompleteModal = async (op: WorkOrderOperation) => {
-  setSawTargetOperation(op);
-  setShowSawCompleteModal(true);
-  setLotsError('');
-  setAvailableLots([]);
-  setSelectedLotId(null);
-  setCutKg('');
+    setSawTargetOperation(op);
+    setShowSawCompleteModal(true);
+    setLotsError('');
+    setAvailableLots([]);
+    setSelectedLotId(null);
+    setCutKg('');
 
-  try {
-    setLotsLoading(true);
-    const lots = await getAvailableLotsForOperation(op.id);
-    setAvailableLots(lots);
+    try {
+      setLotsLoading(true);
+      const lots = await getAvailableLotsForOperation(op.id);
+      setAvailableLots(lots);
 
-    // default: ilk lotu seç
-    setSelectedLotId(lots?.[0]?.id ?? null);
-  } catch (err) {
-    console.error(err);
-    setLotsError('Lot listesi alınamadı.');
-  } finally {
-    setLotsLoading(false);
-  }
-};
+      // default: ilk lotu seç
+      setSelectedLotId(lots?.[0]?.id ?? null);
+    } catch (err) {
+      console.error(err);
+      setLotsError('Lot listesi alınamadı.');
+    } finally {
+      setLotsLoading(false);
+    }
+  };
 
-const closeSawCompleteModal = () => {
-  setShowSawCompleteModal(false);
-  setSawTargetOperation(null);
-  setAvailableLots([]);
-  setSelectedLotId(null);
-  setCutKg('');
-  setLotsError('');
-};
+  const closeSawCompleteModal = () => {
+    setShowSawCompleteModal(false);
+    setSawTargetOperation(null);
+    setAvailableLots([]);
+    setSelectedLotId(null);
+    setCutKg('');
+    setLotsError('');
+  };
 
   const handleCompleteOperation = async (op: WorkOrderOperation) => {
     // TESTERE ise modal
@@ -325,7 +336,7 @@ const closeSawCompleteModal = () => {
 
     try {
       setActionLoading(op.id);
-      await completeOperation(op.id);
+      await completeOperation(op.id, operator.id);
       await refreshAll();
       alert('Operasyon başarıyla tamamlandı!');
     } catch (err: any) {
@@ -341,7 +352,7 @@ const closeSawCompleteModal = () => {
 
     try {
       setActionLoading(op.id);
-      await cancelOperation(op.id);
+      await cancelOperation(op.id, operator.id);
       await refreshAll();
       alert('Operasyon iptal edildi.');
     } catch (err: any) {
@@ -353,50 +364,67 @@ const closeSawCompleteModal = () => {
   };
 
   const submitSawComplete = async () => {
-  if (!sawTargetOperation) return;
-  if (!selectedLotId) {
-    alert('Lütfen bir lot seçin.');
-    return;
-  }
+    if (!sawTargetOperation) return;
+    if (!selectedLotId) {
+      alert('Lütfen bir lot seçin.');
+      return;
+    }
 
-  const kg = Number(String(cutKg).replace(',', '.'));
-  if (!Number.isFinite(kg) || kg <= 0) {
-    alert('Kesilen kilo geçersiz.');
-    return;
-  }
+    const kg = Number(String(cutKg).replace(',', '.'));
+    if (!Number.isFinite(kg) || kg <= 0) {
+      alert('Kesilen kilo geçersiz.');
+      return;
+    }
 
-  // UI validation: remaining_kg kontrolü (backend zaten kontrol ediyor)
-  const lot = availableLots.find((x) => x.id === selectedLotId);
-  if (lot && typeof lot.remaining_kg === 'number' && kg > lot.remaining_kg) {
-    alert(`Bu lotta yeterli miktar yok. Kalan: ${lot.remaining_kg} kg`);
-    return;
-  }
+    // UI validation: remaining_kg kontrolü (backend zaten kontrol ediyor)
+    const lot = availableLots.find((x) => x.id === selectedLotId);
+    if (lot && typeof lot.remaining_kg === 'number' && kg > lot.remaining_kg) {
+      alert(`Bu lotta yeterli miktar yok. Kalan: ${lot.remaining_kg} kg`);
+      return;
+    }
 
-  try {
-    setActionLoading(sawTargetOperation.id);
+    try {
+      setActionLoading(sawTargetOperation.id);
 
-    await completeSawOperation(sawTargetOperation.id, {
-      lot_id: selectedLotId,
-      quantity_kg: kg,
-    });
+      await completeSawOperation(sawTargetOperation.id, {
+        lot_id: selectedLotId,
+        quantity_kg: kg,
+      });
 
-    // listeden düşür (Completed oldu)
-    setOperations((prev) => prev.filter((x) => x.id !== sawTargetOperation.id));
+      // listeden düşür (Completed oldu)
+      setOperations((prev) => prev.filter((x) => x.id !== sawTargetOperation.id));
 
-    closeSawCompleteModal();
-    alert('Testere operasyonu tamamlandı. Stok düşümü işlendi.');
-    await refreshAll();
-  } catch (err: any) {
-    console.error(err);
-    if (err instanceof ApiError) alert(err.message);
-    else alert('Testere operasyonu tamamlanırken bir hata oluştu.');
-  } finally {
-    setActionLoading(null);
-  }
-};
+      closeSawCompleteModal();
+      alert('Testere operasyonu tamamlandı. Stok düşümü işlendi.');
+      await refreshAll();
+    } catch (err: any) {
+      console.error(err);
+      if (err instanceof ApiError) alert(err.message);
+      else alert('Testere operasyonu tamamlanırken bir hata oluştu.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
 
   const waitingOperations = operations.filter((op) => op.status === 'Waiting' || op.status === 'Paused');
+
+  const filteredWaitingOperations = useMemo(() => {
+    const q = availableSearch.trim().toLowerCase();
+    if (!q) return waitingOperations;
+    return waitingOperations.filter((op) => {
+      const dieNumber = (op.work_order?.pre_machining_order_number ? 'ön işleme' : (op.work_order?.production_order?.die?.die_number ?? '')).toLowerCase();
+      const componentName = (op.work_order?.die_component?.component_type?.name ?? '').toLowerCase();
+      const workOrderNumber = (op.work_order?.pre_machining_order_number || op.work_order?.order_number || '').toLowerCase();
+      const operationName = (op.operation_name ?? op.operation_type?.name ?? '').toLowerCase();
+      return (
+        dieNumber.includes(q) ||
+        componentName.includes(q) ||
+        workOrderNumber.includes(q) ||
+        operationName.includes(q)
+      );
+    });
+  }, [waitingOperations, availableSearch]);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -438,9 +466,8 @@ const closeSawCompleteModal = () => {
               <div className="mt-3 flex items-center gap-2">
                 <button
                   onClick={() => setTab('available')}
-                  className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${
-                    tab === 'available' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'
-                  }`}
+                  className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${tab === 'available' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'
+                    }`}
                 >
                   <ListTodo className="w-4 h-4" />
                   Uygun Operasyonlar
@@ -448,9 +475,8 @@ const closeSawCompleteModal = () => {
 
                 <button
                   onClick={() => setTab('assigned')}
-                  className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${
-                    tab === 'assigned' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'
-                  }`}
+                  className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${tab === 'assigned' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'
+                    }`}
                 >
                   <Factory className="w-4 h-4" />
                   Çalışma Merkezlerimdeki İşler
@@ -530,6 +556,28 @@ const closeSawCompleteModal = () => {
               <p className="text-sm text-gray-600 mt-1">
                 Seçili operasyon tipi: <span className="font-medium">{selectedOpType?.name ?? '—'}</span> · Sadece önceki adımları tamam olanlar listelenir.
               </p>
+
+              {/* Search bar */}
+              <div className="mt-3 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={availableSearch}
+                  onChange={(e) => setAvailableSearch(e.target.value)}
+                  placeholder="Kalıp no / iş emri / operasyon ara..."
+                  className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {availableSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setAvailableSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
+                    aria-label="Aramayı temizle"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {waitingOperations.length === 0 ? (
@@ -538,9 +586,15 @@ const closeSawCompleteModal = () => {
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Uygun operasyon yok</h3>
                 <p className="text-gray-600">Bu operasyon tipi için başlatılabilir iş bulunamadı.</p>
               </div>
+            ) : filteredWaitingOperations.length === 0 ? (
+              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Aramaya uygun operasyon bulunamadı.</h3>
+                <p className="text-gray-600">Arama kriterlerinizi değiştirmeyi deneyin.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {waitingOperations.map((operation) => (
+                {filteredWaitingOperations.map((operation) => (
                   <div
                     key={operation.id}
                     className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
@@ -552,12 +606,12 @@ const closeSawCompleteModal = () => {
                         </span>
                         <div>
                           {/* <h3 className="text-lg font-semibold text-gray-900"> */}
-                            {/* {operation.operation_type?.name ?? operation.operation_name ?? 'Operasyon'}
+                          {/* {operation.operation_type?.name ?? operation.operation_name ?? 'Operasyon'}
                           </h3> */}
                           <h3 className="text-lg font-semibold text-gray-900">
                             {operation.operation_name ?? 'Operasyon'}
                           </h3>
-                          <p className="text-sm text-gray-600">{operation.work_order?.order_number ?? ''}</p>
+                          <p className="text-sm text-gray-600">{operation.work_order?.pre_machining_order_number || operation.work_order?.order_number || ''}</p>
                         </div>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(operation.status)}`}>
@@ -569,10 +623,56 @@ const closeSawCompleteModal = () => {
                       <div className="flex justify-between gap-3">
                         <span className="text-gray-600 shrink-0">Kalıp:</span>
                         <span className="font-medium text-gray-900 text-right">
-                          {operation.work_order?.production_order?.die?.die_number ?? '—'} -{' '}
-                          {operation.work_order?.die_component?.component_type?.name ?? '—'}
+                          {operation.work_order?.pre_machining_order_number ? (operation.work_order?.stock_item?.attributes?.alloy ? `${operation.work_order.stock_item.attributes.alloy} ${operation.work_order.stock_item.attributes.diameter_mm ? `(Ø${operation.work_order.stock_item.attributes.diameter_mm})` : ''}` : 'Stok (Ön İşleme)') : (operation.work_order?.production_order?.die?.die_number ?? '—')} -{' '}
+                          {operation.work_order?.pre_machining_order_number ? 'Yarımamül' : (operation.work_order?.die_component?.component_type?.name ?? '—')}
                         </span>
                       </div>
+                      {/* Kalıp Çapı ve Figür Sayısı */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-600 shrink-0">Kalıp Çapı:</span>
+                        <span className="font-medium text-gray-900">
+                          {operation.work_order?.pre_machining_order_number ? `Ø${operation.work_order?.stock_item?.attributes?.diameter_mm || '—'} mm` : (operation.work_order?.production_order?.die?.die_diameter_mm ? `${operation.work_order.production_order.die.die_diameter_mm} mm` : '—')}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-600 shrink-0">Kalıp Figür Sayısı:</span>
+                        <span className="font-medium text-gray-900">
+                          {operation.work_order?.pre_machining_order_number ? '—' : (operation.work_order?.production_order?.die?.figure_count ?? '—')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-600">{operation.work_order?.pre_machining_order_number ? "Planlanan Boy (mm):" : "Paket Boyu:"}</span>
+                        <span className="font-medium text-gray-900">{operation.work_order?.pre_machining_order_number ? (operation.work_order?.planned_cut_length_mm ?? '—') : (operation.work_order?.die_component?.package_length_mm ?? '—')} mm</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-600">{operation.work_order?.pre_machining_order_number ? "Planlanan Ağırlık:" : "Toplam Paket Boyu:"}</span>
+                        <span className="font-medium text-gray-900">{operation.work_order?.pre_machining_order_number ? (operation.work_order?.planned_cut_weight_kg ? `${operation.work_order.planned_cut_weight_kg} kg` : '—') : (operation.work_order?.production_order?.die?.total_package_length_mm ?? '—')} mm</span>
+                      </div>
+                    </div>
+                    
+                    {/* Müşteri ve Oluşturulma */}
+                    <div className="grid grid-cols-2 gap-4 pt-1 border-t border-gray-100">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-600 shrink-0">Müşteri:</span>
+                        <span className="font-medium text-gray-900 text-right">
+                          {operation.work_order?.pre_machining_order_number ? 'İç Üretim' : (operation.work_order?.production_order?.die?.customer_name ?? '—')}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-600 shrink-0">Oluşturulma:</span>
+                        <span className="font-medium text-gray-900">
+                          {operation.work_order?.created_at
+                            ? new Date(operation.work_order.created_at).toLocaleDateString()
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
 
                       {(operation.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
                         <div className="mt-3 pt-3 border-t border-gray-100">
@@ -627,14 +727,23 @@ const closeSawCompleteModal = () => {
                       )}
                     </div>
 
-                    <button
-                      onClick={() => openStartModal(operation)}
-                      disabled={actionLoading === operation.id || eligibleWorkCenters.length === 0 || eligibleLoading}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Play className="w-5 h-5" />
-                      Başlat (Çalışma Merkezi Seç)
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openStartModal(operation)}
+                        disabled={actionLoading === operation.id || eligibleWorkCenters.length === 0 || eligibleLoading}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Play className="w-5 h-5" />
+                        Başlat (Çalışma Merkezi Seç)
+                      </button>
+                      <button
+                        onClick={() => setDetailsModalOperation(operation)}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+                        title="Detayları Gör"
+                      >
+                        <Info className="w-5 h-5" />
+                      </button>
+                    </div>
 
                     {eligibleWorkCenters.length === 0 && (
                       <p className="mt-2 text-xs text-red-600">Bu operasyon tipi için uygun çalışma merkezi yok.</p>
@@ -709,7 +818,7 @@ const closeSawCompleteModal = () => {
                                     </p>
                                   </div>
                                   <p className="text-xs text-gray-600 mt-1 truncate">
-                                    {op.work_order?.order_number ?? ''}
+                                    {op.work_order?.pre_machining_order_number || op.work_order?.order_number || ''}
                                   </p>
                                 </div>
 
@@ -722,24 +831,48 @@ const closeSawCompleteModal = () => {
                                 <div className="flex justify-between gap-2">
                                   <span>Kalıp</span>
                                   <span className="font-medium text-gray-900">
-                                    {op.work_order?.production_order?.die?.die_number ?? '—'}
+                                    {op.work_order?.pre_machining_order_number ? 'Stok (Ön İşleme)' : (op.work_order?.production_order?.die?.die_number ?? '—')}
                                   </span>
                                 </div>
                                 <div className="flex justify-between gap-2">
                                   <span>Bileşen</span>
                                   <span className="font-medium text-gray-900">
-                                    {op.work_order?.die_component?.component_type?.name ?? '—'}
+                                    {op.work_order?.pre_machining_order_number ? 'Yarımamül' : (op.work_order?.die_component?.component_type?.name ?? '—')}
                                   </span>
                                 </div>
                               </div> */}
-                              <div className="mt-3 text-xs text-gray-600">
-                                <span className="font-medium text-gray-900">
-                                  Kalıp:{' '}
-                                  {op.work_order?.production_order?.die?.die_number ?? '—'}
-                                  {' '}
-                                  –{' '}
-                                  {op.work_order?.die_component?.component_type?.name ?? '—'}
-                                </span>
+                              <div className="mt-3 text-xs text-gray-600 space-y-1">
+                                <div className="flex justify-between gap-2">
+                                  <span>Kalıp</span>
+                                  <span className="font-medium text-gray-900 text-right">
+                                    {op.work_order?.pre_machining_order_number ? (op.work_order?.stock_item?.attributes?.alloy ? `${op.work_order.stock_item.attributes.alloy} ${op.work_order.stock_item.attributes.diameter_mm ? `(Ø${op.work_order.stock_item.attributes.diameter_mm})` : ''}` : 'Stok (Ön İşleme)') : (op.work_order?.production_order?.die?.die_number ?? '—')} – {op.work_order?.pre_machining_order_number ? 'Yarımamül' : (op.work_order?.die_component?.component_type?.name ?? '—')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span>Müşteri</span>
+                                  <span className="font-medium text-gray-900 text-right">
+                                    {op.work_order?.pre_machining_order_number ? 'İç Üretim' : (op.work_order?.production_order?.die?.customer_name ?? '—')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span>{op.work_order?.pre_machining_order_number ? 'Çap' : 'Kalıp Çapı'}</span>
+                                  <span className="font-medium text-gray-900 text-right">
+                                    {op.work_order?.pre_machining_order_number ? `Ø${op.work_order?.stock_item?.attributes?.diameter_mm || '—'} mm` : (op.work_order?.production_order?.die?.die_diameter_mm ? `${op.work_order.production_order.die.die_diameter_mm} mm` : '—')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span>{op.work_order?.pre_machining_order_number ? 'Planlanan Boy' : 'Figür Sayısı'}</span>
+                                  <span className="font-medium text-gray-900 text-right">
+                                    {op.work_order?.pre_machining_order_number ? (op.work_order?.planned_cut_length_mm ? `${op.work_order.planned_cut_length_mm} mm` : '—') : (op.work_order?.production_order?.die?.figure_count ?? '—')}
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between gap-2">
+                                  <span>Oluşturulma</span>
+                                  <span className="font-medium text-gray-900 text-right">
+                                    {op.work_order?.created_at ? new Date(op.work_order.created_at).toLocaleDateString() : '—'}
+                                  </span>
+                                </div>
                               </div>
                               {(op.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
                                 <div className="mt-3 pt-3 border-t border-gray-100">
@@ -791,6 +924,14 @@ const closeSawCompleteModal = () => {
                               )}
 
                               <div className="mt-4 flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => setDetailsModalOperation(op)}
+                                  className="px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 flex items-center gap-2"
+                                  title="Detayları Gör"
+                                >
+                                  <Info className="w-4 h-4" />
+                                  Detay
+                                </button>
                                 {(op.status === 'Waiting' || op.status === 'Paused') && (
                                   <button
                                     onClick={() => handleStartAssigned(op, wc.id)}
@@ -856,7 +997,7 @@ const closeSawCompleteModal = () => {
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Operasyonu Başlat</h3>
                 <p className="text-sm text-gray-600">
-                  {selectedOperation.operation_name ?? 'Operasyon'}  ·  {selectedOperation.work_order?.order_number ?? ''}
+                  {selectedOperation.operation_name ?? 'Operasyon'}  ·  {selectedOperation.work_order?.pre_machining_order_number || selectedOperation.work_order?.order_number || ''}
                 </p>
               </div>
               <button
@@ -913,102 +1054,155 @@ const closeSawCompleteModal = () => {
       )}
 
       {showSawCompleteModal && sawTargetOperation && (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-    <div className="w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-        <div>
-          <h3 className="text-lg font-bold text-gray-900">Testere Operasyonu Bitir</h3>
-          <p className="text-sm text-gray-600">
-            {sawTargetOperation.work_order?.order_number ?? ''} ·{' '}
-            {sawTargetOperation.operation_type?.name ?? sawTargetOperation.operation_name ?? 'TESTERE'}
-          </p>
-        </div>
-        <button
-          onClick={closeSawCompleteModal}
-          className="p-2 rounded-lg hover:bg-gray-100"
-          aria-label="Kapat"
-          disabled={actionLoading === sawTargetOperation.id}
-        >
-          <X className="w-5 h-5 text-gray-600" />
-        </button>
-      </div>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Testere Operasyonu Bitir</h3>
+                <p className="text-sm text-gray-600">
+                  {sawTargetOperation.work_order?.pre_machining_order_number || sawTargetOperation.work_order?.order_number || ''} ·{' '}
+                  {sawTargetOperation.operation_type?.name ?? sawTargetOperation.operation_name ?? 'TESTERE'}
+                </p>
+              </div>
+              <button
+                onClick={closeSawCompleteModal}
+                className="p-2 rounded-lg hover:bg-gray-100"
+                aria-label="Kapat"
+                disabled={actionLoading === sawTargetOperation.id}
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
 
-      <div className="px-5 py-4 space-y-4">
-        {lotsError && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-            <AlertCircle className="w-5 h-5" />
-            <span>{lotsError}</span>
+            <div className="px-5 py-4 space-y-4">
+              {lotsError && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>{lotsError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hangi Lot?</label>
+
+                <select
+                  value={selectedLotId ?? ''}
+                  onChange={(e) => setSelectedLotId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  disabled={lotsLoading}
+                >
+                  {lotsLoading ? (
+                    <option value="">Lotlar yükleniyor...</option>
+                  ) : availableLots.length === 0 ? (
+                    <option value="">(Uygun lot yok)</option>
+                  ) : (
+                    availableLots.map((lot) => (
+                      // <option key={lot.id} value={lot.id}>
+                      //   #{lot.certificate_number} · {lot.supplier} · Kalan {lot.remaining_kg} kg
+                      // </option>
+                      <option key={lot.id} value={lot.id}>
+                        Ø{(lot as any).diameter_mm ?? '—'} · {lot.supplier} · Kalan {lot.remaining_kg} kg
+                      </option>
+
+                    ))
+                  )}
+                </select>
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Sadece ilgili çeliğe ait ve remaining_kg &gt; 0 olan lotlar listelenir.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Gerçekte kaç kg kesildi?</label>
+                <input
+                  value={cutKg}
+                  onChange={(e) => setCutKg(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  placeholder="örn: 12.5"
+                  inputMode="decimal"
+                  disabled={lotsLoading}
+                />
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={closeSawCompleteModal}
+                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                disabled={actionLoading === sawTargetOperation.id}
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={submitSawComplete}
+                disabled={
+                  actionLoading === sawTargetOperation.id ||
+                  lotsLoading ||
+                  !selectedLotId ||
+                  !cutKg
+                }
+                className="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                {actionLoading === sawTargetOperation.id ? 'Kaydediliyor...' : 'Bitir & Stok Düş'}
+              </button>
+            </div>
           </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Hangi Lot?</label>
-
-          <select
-            value={selectedLotId ?? ''}
-            onChange={(e) => setSelectedLotId(e.target.value ? Number(e.target.value) : null)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
-            disabled={lotsLoading}
-          >
-            {lotsLoading ? (
-              <option value="">Lotlar yükleniyor...</option>
-            ) : availableLots.length === 0 ? (
-              <option value="">(Uygun lot yok)</option>
-            ) : (
-              availableLots.map((lot) => (
-                // <option key={lot.id} value={lot.id}>
-                //   #{lot.certificate_number} · {lot.supplier} · Kalan {lot.remaining_kg} kg
-                // </option>
-                <option key={lot.id} value={lot.id}>
-                  Ø{(lot as any).diameter_mm ?? '—'} · {lot.supplier} · Kalan {lot.remaining_kg} kg
-                </option>
-
-              ))
-            )}
-          </select>
-
-          <p className="mt-2 text-xs text-gray-500">
-            Sadece ilgili çeliğe ait ve remaining_kg &gt; 0 olan lotlar listelenir.
-          </p>
         </div>
+      )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Gerçekte kaç kg kesildi?</label>
-          <input
-            value={cutKg}
-            onChange={(e) => setCutKg(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
-            placeholder="örn: 12.5"
-            inputMode="decimal"
-            disabled={lotsLoading}
-          />
+      {/* --------- Details Modal --------- */}
+      {detailsModalOperation && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Operasyon Detayları</h3>
+                <p className="text-sm text-gray-600">
+                  {detailsModalOperation.operation_name ?? 'Operasyon'} · {detailsModalOperation.work_order?.pre_machining_order_number || detailsModalOperation.work_order?.order_number || ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setDetailsModalOperation(null)}
+                className="p-2 rounded-lg hover:bg-gray-100"
+                aria-label="Kapat"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3 text-sm">
+              <div className="flex flex-col border-b border-gray-100 pb-2">
+                <span className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1">Kalıp Tipi</span>
+                <span className="text-gray-900 font-semibold">{detailsModalOperation.work_order?.production_order?.die?.die_type_ref?.name ?? '—'}</span>
+              </div>
+              <div className="flex flex-col border-b border-gray-100 pb-2">
+                <span className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1">Pres Kodu</span>
+                <span className="text-gray-900">{detailsModalOperation.work_order?.production_order?.die?.press_code ?? '—'}</span>
+              </div>
+              <div className="flex flex-col border-b border-gray-100 pb-2">
+                <span className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1">Profil No</span>
+                <span className="text-gray-900">{detailsModalOperation.work_order?.production_order?.die?.profile_no ?? '—'}</span>
+              </div>
+              <div className="flex flex-col border-b border-gray-100 pb-2">
+                <span className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1">Açıklama (Kalıp)</span>
+                <span className="text-gray-900 whitespace-pre-wrap">{detailsModalOperation.work_order?.production_order?.die?.description ?? '—'}</span>
+              </div>
+              <div className="flex flex-col border-b border-gray-100 pb-2">
+                <span className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1">Operasyon Notları</span>
+                <span className="text-gray-900 whitespace-pre-wrap">{detailsModalOperation.notes ?? '—'}</span>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setDetailsModalOperation(null)}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div className="px-5 py-4 border-t border-gray-200 flex gap-3">
-        <button
-          onClick={closeSawCompleteModal}
-          className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-          disabled={actionLoading === sawTargetOperation.id}
-        >
-          Vazgeç
-        </button>
-        <button
-          onClick={submitSawComplete}
-          disabled={
-            actionLoading === sawTargetOperation.id ||
-            lotsLoading ||
-            !selectedLotId ||
-            !cutKg
-          }
-          className="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          {actionLoading === sawTargetOperation.id ? 'Kaydediliyor...' : 'Bitir & Stok Düş'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
     </div>
   );

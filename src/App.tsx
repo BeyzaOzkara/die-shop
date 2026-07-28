@@ -13,12 +13,14 @@ import {
   UserCircle,
   LogOut,
   Truck,
+  Scissors,
 } from "lucide-react";
 
 import { DiesPage } from "./pages/DiesPage";
 import { DiesDashboardPage } from "./pages/DiesDashboardPage";
 import { ProductionOrdersPage } from "./pages/ProductionOrdersPage";
 import { WorkOrdersPage } from "./pages/WorkOrdersPage";
+import { PreMachiningPage } from "./pages/PreMachiningPage";
 import { StockPage } from "./pages/StockPage";
 import { WorkCentersPage } from "./pages/WorkCentersPage";
 import { DieTypesPage } from "./pages/DieTypesPage";
@@ -50,7 +52,8 @@ type Page =
   | "die-type-components"
   | "operation-types"
   | "component-bom"
-  | "suppliers";
+  | "suppliers"
+  | "pre-machining";
 
 type AuthScreen = "login" | "signup";
 
@@ -190,13 +193,18 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case "dies":
-        return <DiesPage onNavigateToDashboard={() => setCurrentPage("dies-dashboard")} />;
+        return <DiesPage 
+          onNavigateToDashboard={() => setCurrentPage("dies-dashboard")} 
+          onNavigateToPreMachining={() => setCurrentPage("pre-machining")} 
+        />;
       case "dies-dashboard":
         return <DiesDashboardPage onBack={() => setCurrentPage("dies")} />;
       case "production-orders":
         return <ProductionOrdersPage />;
       case "work-orders":
         return <WorkOrdersPage />;
+      case "pre-machining":
+        return <PreMachiningPage onBack={() => setCurrentPage("dies")} />;
       case "stock":
         return <StockPage />;
       case "work-centers":

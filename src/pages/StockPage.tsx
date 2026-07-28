@@ -1,24 +1,40 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Package, Plus, FileText, Trash2, Truck, X, ChevronUp, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Package, Plus, Trash2, Scissors, Database, ArrowRightLeft, Settings, Pencil, Box, MapPin, Beaker, Lock } from 'lucide-react';
 import {
-  getSteelStockItems,
-  createSteelStockItem,
+  getStockItems,
+  createStockItem,
   getLots,
   createLot,
-  getStockMovements,
-  deleteLot,
+  getStockTransactions,
+  cutSteel,
+  getLocations,
+  createLocation,
+  updateLocation,
+  deleteLocation,
+  getItemCategories,
+  createItemCategory,
+  updateItemCategory,
+  deleteItemCategory,
+  getMaterialGrades,
+  createMaterialGrade,
+  updateMaterialGrade,
+  deleteMaterialGrade
 } from '../services/stockService';
 import {
   getSuppliers,
   createSupplier,
   type SupplierCreatePayload,
 } from '../services/supplierService';
-import type { SteelStockItem, Lot, StockMovement, Supplier } from '../types/database';
-import { mediaUrl } from '../lib/media';
+import type {
+  StockItem,
+  Lot,
+  StockTransaction,
+  Supplier,
+  Location,
+  ItemCategory,
+  MaterialGrade
+} from '../types/database';
 
-// --------------------------------------------
-// Quick-create supplier form state
-// --------------------------------------------
 const EMPTY_SUPPLIER_FORM: SupplierCreatePayload = {
   name: '',
   tax_no: '',
@@ -29,197 +45,151 @@ const EMPTY_SUPPLIER_FORM: SupplierCreatePayload = {
   notes: '',
 };
 
-// --------------------------------------------
-// Lot sort key type
-// --------------------------------------------
-type LotSortKey =
-  | 'certificate_number'
-  | 'product'
-  | 'supplier'
-  | 'gross_weight_kg'
-  | 'remaining_kg'
-  | 'received_date';
-
-type SortDir = 'asc' | 'desc';
-
-// --------------------------------------------
-// Default filter state
-// --------------------------------------------
-const DEFAULT_LOT_FILTERS = {
-  text: '',
-  stockItemId: '',
-  supplierId: '',
-  grossMin: '',
-  grossMax: '',
-  remainingMin: '',
-  remainingMax: '',
-  dateFrom: '',
-  dateTo: '',
-};
-
-// --------------------------------------------
-// Sort indicator component
-// --------------------------------------------
-function SortIcon({ col, sortKey, sortDir }: { col: LotSortKey; sortKey: LotSortKey | null; sortDir: SortDir }) {
-  if (sortKey !== col) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 opacity-30 inline" />;
-  return sortDir === 'asc'
-    ? <ChevronUp className="w-3.5 h-3.5 ml-1 text-blue-600 inline" />
-    : <ChevronDown className="w-3.5 h-3.5 ml-1 text-blue-600 inline" />;
-}
+type Tab = 'items' | 'lots' | 'transactions' | 'categories' | 'locations' | 'material_grades';
 
 export function StockPage() {
-  const [activeTab, setActiveTab] = useState<'items' | 'lots' | 'movements'>('items');
-  const [stockItems, setStockItems] = useState<SteelStockItem[]>([]);
-  const [lots, setLots] = useState<Lot[]>([]);
-  const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [showItemForm, setShowItemForm] = useState(false);
-  const [showLotForm, setShowLotForm] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('items');
   const [loading, setLoading] = useState(true);
 
-  // ---- New Stock Item ----
+  // --- Data States ---
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [lots, setLots] = useState<Lot[]>([]);
+  const [transactions, setTransactions] = useState<StockTransaction[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [categories, setCategories] = useState<ItemCategory[]>([]);
+  const [materialGrades, setMaterialGrades] = useState<MaterialGrade[]>([]);
+
+  // --- UI States (Operations) ---
+  const [showItemForm, setShowItemForm] = useState(false);
+  const [showLotForm, setShowLotForm] = useState(false);
+  const [showCutModal, setShowCutModal] = useState(false);
+  const [showQuickSupplier, setShowQuickSupplier] = useState(false);
+
+  // --- UI States (Master Data) ---
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showMaterialGradeModal, setShowMaterialGradeModal] = useState(false);
+
+  // --- Edit states (Master Data) ---
+  const [editingCategory, setEditingCategory] = useState<ItemCategory | null>(null);
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [editingMaterialGrade, setEditingMaterialGrade] = useState<MaterialGrade | null>(null);
+
+  // --- Form States (Operations) ---
   const [newItem, setNewItem] = useState({
-    alloy: '',
-    diameter_mm: '',
-    description: '',
+    category_id: '',
+    location_id: '',
+    lot_id: '',
+    quantity: '',
+    attrDiameter: '',
+    attrLength: ''
   });
 
-  // ---- New Lot ----
   const [newLot, setNewLot] = useState({
-    stock_item_id: '',
+    lot_number: '',
     certificate_number: '',
-    supplier_id: '',   // FK-based selection
-    length_mm: '',
-    gross_weight_kg: '',
-    received_date: new Date().toISOString().split('T')[0],
+    supplier_id: '',
+    material_grade_id: '',
+    receive_date: new Date().toISOString().split('T')[0],
   });
-
   const [lotCertificateFiles, setLotCertificateFiles] = useState<File[]>([]);
 
-  // ---- Quick-create supplier modal ----
-  const [showQuickSupplier, setShowQuickSupplier] = useState(false);
+  const [cutData, setCutData] = useState({
+    parent_id: 0,
+    cut_quantity: '',
+    cut_length: '',
+    notes: ''
+  });
+
   const [quickForm, setQuickForm] = useState<SupplierCreatePayload>(EMPTY_SUPPLIER_FORM);
   const [quickSubmitting, setQuickSubmitting] = useState(false);
   const [quickError, setQuickError] = useState('');
 
-  // ---- Lot filters ----
-  const [lotFilters, setLotFilters] = useState(DEFAULT_LOT_FILTERS);
+  // --- Form States (Master Data) ---
+  const [categoryForm, setCategoryForm] = useState({ name: '', base_uom: 'Adet', is_cuttable: false });
+  const [locationForm, setLocationForm] = useState({ name: '', location_type: 'WAREHOUSE', description: '' });
+  const [materialGradeForm, setMaterialGradeForm] = useState({ name: '' });
+  const [compositionList, setCompositionList] = useState<{ element: string; percentage: number | '' }[]>([
+    { element: '', percentage: '' },
+  ]);
 
-  // ---- Lot sort ----
-  const [sortKey, setSortKey] = useState<LotSortKey | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-
-  // ---- Load ----
+  // --- Data Loading ---
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [items, activeSuppliers, lotsData] = await Promise.all([
-        getSteelStockItems(),
+      const [
+        itemsData, lotsData, transData, suppData, locData, catData, gradeData
+      ] = await Promise.all([
+        getStockItems(),
+        getLots(),
+        getStockTransactions(),
         getSuppliers({ active: true }),
-        getLots(), // always fetch lots (needed for per-item totals on items tab)
+        getLocations(),
+        getItemCategories(),
+        getMaterialGrades()
       ]);
-      setStockItems(items);
-      setSuppliers(activeSuppliers);
+      setStockItems(itemsData);
       setLots(lotsData);
-
-      if (activeTab === 'movements') {
-        const movementsData = await getStockMovements();
-        setMovements(movementsData);
-      }
+      setTransactions(transData);
+      setSuppliers(suppData);
+      setLocations(locData);
+      setCategories(catData);
+      setMaterialGrades(gradeData);
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // ---- Sort handler ----
-  const handleSort = useCallback((key: LotSortKey) => {
-    setSortKey((prev) => {
-      if (prev !== key) {
-        setSortDir('asc');
-        return key;
-      } else if (sortDir === 'asc') {
-        setSortDir('desc');
-        return key;
-      } else {
-        // desc → clear
-        setSortDir('asc');
-        return null;
-      }
-    });
-  }, [sortDir]);
-
-  // ---- Handlers ----
-  const handleDeleteLot = async (lotId: number) => {
-    const ok = window.confirm('Bu lotu silmek istediğine emin misin?');
-    if (!ok) return;
-    try {
-      await deleteLot(lotId);
-      loadData();
-    } catch (error: any) {
-      console.error('Lot silinemedi:', error);
-      const msg =
-        error?.response?.status === 409
-          ? error?.response?.data?.detail || 'Bu lot kullanıldığı için silinemez.'
-          : 'Lot silinirken bir hata oluştu.';
-      alert(msg);
-    }
-  };
-
+  // --- Operations Handlers ---
   const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createSteelStockItem({
-        alloy: newItem.alloy,
-        diameter_mm: Number(newItem.diameter_mm),
-        description: newItem.description || undefined,
+      const attributes: Record<string, any> = {};
+      if (newItem.attrDiameter) attributes.diameter_mm = Number(newItem.attrDiameter);
+      if (newItem.attrLength) attributes.length_mm = Number(newItem.attrLength);
+
+      await createStockItem({
+        item_type: 'RAW_MATERIAL',
+        category_id: Number(newItem.category_id),
+        location_id: newItem.location_id ? Number(newItem.location_id) : null,
+        lot_id: newItem.lot_id ? Number(newItem.lot_id) : null,
+        quantity: Number(newItem.quantity),
+        attributes: Object.keys(attributes).length > 0 ? attributes : undefined
       });
-      setNewItem({ alloy: '', diameter_mm: '', description: '' });
+
+      setNewItem({
+        category_id: '', location_id: '', lot_id: '', quantity: '',
+        attrDiameter: '', attrLength: ''
+      });
       setShowItemForm(false);
       loadData();
     } catch (error) {
-      console.error('Çelik ürün oluşturulamadı:', error);
-      alert('Çelik ürün oluşturulurken bir hata oluştu.');
+      console.error('Stok kalemi oluşturulamadı:', error);
+      alert('Stok kalemi oluşturulurken bir hata oluştu.');
     }
   };
 
   const handleCreateLot = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const grossWeight = Number(newLot.gross_weight_kg);
-      const selectedSupplierId = newLot.supplier_id ? Number(newLot.supplier_id) : undefined;
-      const selectedSupplier = selectedSupplierId
-        ? suppliers.find((s) => s.id === selectedSupplierId)
-        : undefined;
-
-      await createLot(
-        {
-          stock_item_id: Number(newLot.stock_item_id),
-          certificate_number: newLot.certificate_number,
-          // Keep supplier name string for backward compat; backend also resolves from supplier_id
-          supplier: selectedSupplier?.name ?? '',
-          supplier_id: selectedSupplierId,
-          length_mm: Number(newLot.length_mm),
-          gross_weight_kg: grossWeight,
-          remaining_kg: grossWeight,
-          received_date: newLot.received_date,
-        },
-        lotCertificateFiles,
-      );
+      await createLot({
+        lot_number: newLot.lot_number,
+        certificate_number: newLot.certificate_number || undefined,
+        supplier_id: newLot.supplier_id ? Number(newLot.supplier_id) : null,
+        material_grade_id: newLot.material_grade_id ? Number(newLot.material_grade_id) : null,
+        receive_date: newLot.receive_date
+      }, lotCertificateFiles);
 
       setNewLot({
-        stock_item_id: '',
-        certificate_number: '',
-        supplier_id: '',
-        length_mm: '',
-        gross_weight_kg: '',
-        received_date: new Date().toISOString().split('T')[0],
+        lot_number: '', certificate_number: '', supplier_id: '',
+        material_grade_id: '', receive_date: new Date().toISOString().split('T')[0]
       });
       setLotCertificateFiles([]);
       setShowLotForm(false);
@@ -230,7 +200,24 @@ export function StockPage() {
     }
   };
 
-  // ---- Quick-create supplier ----
+  const handleCutSteel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await cutSteel({
+        parent_stock_item_id: cutData.parent_id,
+        cut_quantity: Number(cutData.cut_quantity),
+        child_attributes: { length_mm: Number(cutData.cut_length), piece_type: 'cut_piece' },
+        notes: cutData.notes || undefined
+      });
+      setCutData({ parent_id: 0, cut_quantity: '', cut_length: '', notes: '' });
+      setShowCutModal(false);
+      loadData();
+    } catch (error: any) {
+      console.error('Kesim hatası:', error);
+      alert(error?.response?.data?.detail || 'Kesim işlemi sırasında hata oluştu.');
+    }
+  };
+
   const handleQuickSupplierCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickForm.name?.trim()) {
@@ -244,159 +231,150 @@ export function StockPage() {
         ...quickForm,
         name: quickForm.name!.trim(),
         tax_no: quickForm.tax_no?.trim() || undefined,
-        contact_name: quickForm.contact_name?.trim() || undefined,
-        phone: quickForm.phone?.trim() || undefined,
-        email: quickForm.email?.trim() || undefined,
-        address: quickForm.address?.trim() || undefined,
-        notes: quickForm.notes?.trim() || undefined,
       });
-
-      // Refresh supplier list
       const updated = await getSuppliers({ active: true });
       setSuppliers(updated);
-
-      // Auto-select the newly created supplier
       setNewLot((prev) => ({ ...prev, supplier_id: String(created.id) }));
       setShowQuickSupplier(false);
       setQuickForm(EMPTY_SUPPLIER_FORM);
     } catch (err: any) {
-      const detail =
-        err?.response?.data?.detail ?? err?.message ?? 'Bir hata oluştu.';
-      setQuickError(detail);
+      setQuickError(err?.response?.data?.detail ?? err?.message ?? 'Bir hata oluştu.');
     } finally {
       setQuickSubmitting(false);
     }
   };
 
-  // ---- Reset filters ----
-  const handleResetFilters = useCallback(() => {
-    setLotFilters(DEFAULT_LOT_FILTERS);
-    setSortKey(null);
-    setSortDir('asc');
-  }, []);
-
-  // ========================================================
-  // MEMOS
-  // ========================================================
-
-  // Filtered lots
-  const filteredLots = useMemo(() => {
-    const {
-      text, stockItemId, supplierId,
-      grossMin, grossMax, remainingMin, remainingMax,
-      dateFrom, dateTo,
-    } = lotFilters;
-
-    const lowerText = text.toLowerCase().trim();
-
-    return lots.filter((lot) => {
-      // Free text: certificate_number, alloy, diameter
-      if (lowerText) {
-        const haystack = [
-          lot.certificate_number,
-          lot.stock_item?.alloy ?? '',
-          lot.stock_item ? `${lot.stock_item.diameter_mm}` : '',
-          lot.stock_item ? `ø${lot.stock_item.diameter_mm}` : '',
-        ].join(' ').toLowerCase();
-        if (!haystack.includes(lowerText)) return false;
+  // --- Master Data Handlers ---
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name || !categoryForm.base_uom) return alert('Lütfen zorunlu alanları doldurun.');
+    try {
+      if (editingCategory) {
+        await updateItemCategory(editingCategory.id, categoryForm);
+      } else {
+        await createItemCategory(categoryForm);
       }
-
-      // Çelik Ürün
-      if (stockItemId && String(lot.stock_item_id) !== stockItemId) return false;
-
-      // Tedarikçi: prefer FK, fallback to legacy string match
-      if (supplierId) {
-        if (lot.supplier_id != null) {
-          if (String(lot.supplier_id) !== supplierId) return false;
-        } else {
-          // Legacy: find supplier by id and compare name
-          const sup = suppliers.find((s) => String(s.id) === supplierId);
-          if (!sup) return false;
-          if (!lot.supplier?.toLowerCase().includes(sup.name.toLowerCase())) return false;
-        }
-      }
-
-      // Brüt ağırlık range
-      const gross = Number(lot.gross_weight_kg);
-      if (grossMin !== '' && gross < Number(grossMin)) return false;
-      if (grossMax !== '' && gross > Number(grossMax)) return false;
-
-      // Kalan range
-      const remaining = Number(lot.remaining_kg);
-      if (remainingMin !== '' && remaining < Number(remainingMin)) return false;
-      if (remainingMax !== '' && remaining > Number(remainingMax)) return false;
-
-      // Date range
-      if (dateFrom && lot.received_date < dateFrom) return false;
-      if (dateTo && lot.received_date > dateTo) return false;
-
-      return true;
-    });
-  }, [lots, lotFilters, suppliers]);
-
-  // Sorted lots
-  const sortedLots = useMemo(() => {
-    if (!sortKey) return filteredLots;
-
-    return [...filteredLots].sort((a, b) => {
-      let aVal: string | number = 0;
-      let bVal: string | number = 0;
-
-      switch (sortKey) {
-        case 'certificate_number':
-          aVal = a.certificate_number ?? '';
-          bVal = b.certificate_number ?? '';
-          break;
-        case 'product':
-          aVal = `${a.stock_item?.alloy ?? ''} ${a.stock_item?.diameter_mm ?? ''}`;
-          bVal = `${b.stock_item?.alloy ?? ''} ${b.stock_item?.diameter_mm ?? ''}`;
-          break;
-        case 'supplier':
-          aVal = (a.supplier_ref?.name ?? a.supplier ?? '').toLowerCase();
-          bVal = (b.supplier_ref?.name ?? b.supplier ?? '').toLowerCase();
-          break;
-        case 'gross_weight_kg':
-          aVal = Number(a.gross_weight_kg);
-          bVal = Number(b.gross_weight_kg);
-          break;
-        case 'remaining_kg':
-          aVal = Number(a.remaining_kg);
-          bVal = Number(b.remaining_kg);
-          break;
-        case 'received_date':
-          aVal = a.received_date ?? '';
-          bVal = b.received_date ?? '';
-          break;
-      }
-
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [filteredLots, sortKey, sortDir]);
-
-  // Lot totals
-  const lotTotals = useMemo(() => {
-    const totalGross = sortedLots.reduce((s, l) => s + Number(l.gross_weight_kg), 0);
-    const totalRemaining = sortedLots.reduce((s, l) => s + Number(l.remaining_kg), 0);
-    return { totalGross, totalRemaining, count: sortedLots.length };
-  }, [sortedLots]);
-
-  // Per stock-item totals (for items tab)
-  const itemTotals = useMemo(() => {
-    const map = new Map<number, { gross: number; remaining: number }>();
-    for (const lot of lots) {
-      const prev = map.get(lot.stock_item_id) ?? { gross: 0, remaining: 0 };
-      map.set(lot.stock_item_id, {
-        gross: prev.gross + Number(lot.gross_weight_kg),
-        remaining: prev.remaining + Number(lot.remaining_kg),
-      });
+      setShowCategoryModal(false);
+      loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Kaydetme başarısız.');
     }
-    return map;
-  }, [lots]);
+  };
 
-  // Shared input class
-  const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+  const handleDeleteCategory = async (id: number) => {
+    if (!confirm('Silmek istediğinize emin misiniz?')) return;
+    try {
+      await deleteItemCategory(id);
+      loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Silme işlemi başarısız (büyük ihtimalle kullanılıyor).');
+    }
+  };
+
+  const openCategoryModal = (cat?: ItemCategory) => {
+    if (cat) {
+      setEditingCategory(cat);
+      setCategoryForm({ name: cat.name, base_uom: cat.base_uom, is_cuttable: cat.is_cuttable });
+    } else {
+      setEditingCategory(null);
+      setCategoryForm({ name: '', base_uom: 'Adet', is_cuttable: false });
+    }
+    setShowCategoryModal(true);
+  };
+
+  const handleSaveLocation = async () => {
+    if (!locationForm.name || !locationForm.location_type) return alert('Lütfen zorunlu alanları doldurun.');
+    try {
+      if (editingLocation) {
+        await updateLocation(editingLocation.id, locationForm);
+      } else {
+        await createLocation(locationForm);
+      }
+      setShowLocationModal(false);
+      loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Kaydetme başarısız.');
+    }
+  };
+
+  const handleDeleteLocation = async (id: number) => {
+    if (!confirm('Silmek istediğinize emin misiniz?')) return;
+    try {
+      await deleteLocation(id);
+      loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Silme işlemi başarısız (büyük ihtimalle kullanılıyor).');
+    }
+  };
+
+  const openLocationModal = (loc?: Location) => {
+    if (loc) {
+      setEditingLocation(loc);
+      setLocationForm({ name: loc.name, location_type: loc.location_type, description: loc.description || '' });
+    } else {
+      setEditingLocation(null);
+      setLocationForm({ name: '', location_type: 'WAREHOUSE', description: '' });
+    }
+    setShowLocationModal(true);
+  };
+
+  const handleSaveMaterialGrade = async () => {
+    if (!materialGradeForm.name) return alert('Lütfen zorunlu alanları doldurun.');
+    
+    const compositionDict: Record<string, number> = {};
+    for (const item of compositionList) {
+      if (item.element.trim() && item.percentage !== '') {
+        compositionDict[item.element.trim()] = Number(item.percentage);
+      }
+    }
+
+    try {
+      const payload = {
+        name: materialGradeForm.name,
+        composition: Object.keys(compositionDict).length > 0 ? compositionDict : undefined,
+      };
+
+      if (editingMaterialGrade) {
+        await updateMaterialGrade(editingMaterialGrade.id, payload);
+      } else {
+        await createMaterialGrade(payload);
+      }
+      setShowMaterialGradeModal(false);
+      loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Kaydetme başarısız.');
+    }
+  };
+
+  const handleDeleteMaterialGrade = async (id: number) => {
+    if (!confirm('Silmek istediğinize emin misiniz?')) return;
+    try {
+      await deleteMaterialGrade(id);
+      loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Silme işlemi başarısız (büyük ihtimalle kullanılıyor).');
+    }
+  };
+
+  const openMaterialGradeModal = (mg?: MaterialGrade) => {
+    if (mg) {
+      setEditingMaterialGrade(mg);
+      setMaterialGradeForm({ name: mg.name });
+      
+      if (mg.composition && Object.keys(mg.composition).length > 0) {
+        const list = Object.entries(mg.composition).map(([el, pct]) => ({ element: el, percentage: pct as number }));
+        setCompositionList(list);
+      } else {
+        setCompositionList([{ element: '', percentage: '' }]);
+      }
+    } else {
+      setEditingMaterialGrade(null);
+      setMaterialGradeForm({ name: '' });
+      setCompositionList([{ element: '', percentage: '' }]);
+    }
+    setShowMaterialGradeModal(true);
+  };
+
+  const inputCls = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm";
 
   if (loading) {
     return (
@@ -413,884 +391,720 @@ export function StockPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Stok Yönetimi</h1>
-        <p className="text-gray-600 mt-1">Çelik ürünleri, lotları ve hareketleri yönetin</p>
+        <p className="text-gray-600 mt-1">Stok kalemleri, lotlar, işlem geçmişi ve master data yönetimi</p>
       </div>
 
-      {/* TABLAR */}
-      <div className="mb-6 border-b border-gray-200">
-        <nav className="flex gap-8">
-          <button
-            onClick={() => setActiveTab('items')}
-            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${activeTab === 'items'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-          >
-            Çelik Ürünler
-          </button>
-          <button
-            onClick={() => setActiveTab('lots')}
-            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${activeTab === 'lots'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-          >
-            Lotlar
-          </button>
-          <button
-            onClick={() => setActiveTab('movements')}
-            className={`pb-4 px-1 border-b-2 font-medium transition-colors ${activeTab === 'movements'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-          >
-            Stok Hareketleri
-          </button>
-        </nav>
-      </div>
+      <div className="flex gap-6">
+        {/* Sidebar Navigation */}
+        <div className="w-64 flex-shrink-0">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Operasyonlar</h2>
+            </div>
+            <nav className="flex flex-col p-2 space-y-1">
+              <button onClick={() => setActiveTab('items')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'items' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <Package className="w-4 h-4" /> Stok Kalemleri
+              </button>
+              <button onClick={() => setActiveTab('lots')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'lots' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <Database className="w-4 h-4" /> Lotlar
+              </button>
+              <button onClick={() => setActiveTab('transactions')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'transactions' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <ArrowRightLeft className="w-4 h-4" /> İşlem Geçmişi
+              </button>
+            </nav>
 
-      {/* ÇELİK ÜRÜNLER */}
-      {activeTab === 'items' && (
-        <div>
-          <div className="flex justify-end mb-6">
-            <button
-              onClick={() => setShowItemForm(!showItemForm)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Yeni Çelik Ürün
-            </button>
+            <div className="p-4 border-b border-t border-gray-200 bg-gray-50">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Master Data</h2>
+            </div>
+            <nav className="flex flex-col p-2 space-y-1">
+              <button onClick={() => setActiveTab('categories')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'categories' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <Box className="w-4 h-4" /> Kategoriler
+              </button>
+              <button onClick={() => setActiveTab('locations')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'locations' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <MapPin className="w-4 h-4" /> Lokasyonlar
+              </button>
+              <button onClick={() => setActiveTab('material_grades')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'material_grades' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <Beaker className="w-4 h-4" /> Alaşımlar
+              </button>
+            </nav>
           </div>
-
-          {showItemForm && (
-            <form
-              onSubmit={handleCreateItem}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Çelik Ürün</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Alaşım *</label>
-                  <input
-                    type="text"
-                    value={newItem.alloy}
-                    onChange={(e) => setNewItem({ ...newItem, alloy: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Çap (mm) *</label>
-                  <input
-                    type="number"
-                    value={newItem.diameter_mm}
-                    onChange={(e) => setNewItem({ ...newItem, diameter_mm: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    step="0.01"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
-                  <input
-                    type="text"
-                    value={newItem.description}
-                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowItemForm(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  İptal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Oluştur
-                </button>
-              </div>
-            </form>
-          )}
-
-          {stockItems.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz çelik ürün yok</h3>
-              <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni ürün ekleyin</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Alaşım
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Çap (mm)
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Açıklama
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Toplam Brüt (kg)
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Toplam Kalan (kg)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {stockItems.map((item) => {
-                    const totals = itemTotals.get(item.id);
-                    return (
-                      <tr key={item.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.alloy}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Ø{item.diameter_mm}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{item.description || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                          {totals ? `${totals.gross.toFixed(2)} kg` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                          {totals ? (
-                            <span className={totals.remaining > 0 ? 'text-green-600' : 'text-red-500'}>
-                              {totals.remaining.toFixed(2)} kg
-                            </span>
-                          ) : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-      )}
 
-      {/* LOTLAR */}
-      {activeTab === 'lots' && (
-        <div>
-          <div className="flex justify-end gap-3 mb-6">
-            <button
-              onClick={() => setShowFilters((v) => !v)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg border transition-colors ${showFilters
-                ? 'bg-blue-50 border-blue-300 text-blue-700'
-                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Filtrele
-            </button>
-            <button
-              onClick={() => setShowLotForm(!showLotForm)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Yeni Lot
-            </button>
-          </div>
+        {/* Content Area */}
+        <div className="flex-1">
+          {/* ITEMS TAB */}
+          {activeTab === 'items' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Stok Kalemleri</h2>
+                <button onClick={() => setShowItemForm(!showItemForm)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                  <Plus className="w-4 h-4" /> Yeni Stok Kalemi
+                </button>
+              </div>
 
-          {showLotForm && (
-            <form
-              onSubmit={handleCreateLot}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Lot</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* Çelik Ürün */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Çelik Ürün *</label>
-                  <select
-                    value={newLot.stock_item_id}
-                    onChange={(e) => setNewLot({ ...newLot, stock_item_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Seçiniz</option>
-                    {stockItems.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.alloy} - Ø{item.diameter_mm}mm
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Sertifika No */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika No *</label>
-                  <input
-                    type="text"
-                    value={newLot.certificate_number}
-                    onChange={(e) => setNewLot({ ...newLot, certificate_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-
-                {/* Tedarikçi Dropdown */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tedarikçi *</label>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={newLot.supplier_id}
-                      onChange={(e) => setNewLot({ ...newLot, supplier_id: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Tedarikçi seçiniz</option>
-                      {suppliers.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuickForm(EMPTY_SUPPLIER_FORM);
-                        setQuickError('');
-                        setShowQuickSupplier(true);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
-                    >
-                      <Truck className="w-4 h-4" />
-                      + Yeni Tedarikçi
-                    </button>
-                  </div>
-                </div>
-
-                {/* Uzunluk */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Uzunluk (mm) *</label>
-                  <input
-                    type="number"
-                    value={newLot.length_mm}
-                    onChange={(e) => setNewLot({ ...newLot, length_mm: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    step="0.01"
-                    required
-                  />
-                </div>
-
-                {/* Brüt Ağırlık */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Brüt Ağırlık (kg) *</label>
-                  <input
-                    type="number"
-                    value={newLot.gross_weight_kg}
-                    onChange={(e) => setNewLot({ ...newLot, gross_weight_kg: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    step="0.01"
-                    required
-                  />
-                </div>
-
-                {/* Giriş Tarihi */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Giriş Tarihi *</label>
-                  <input
-                    type="date"
-                    value={newLot.received_date}
-                    onChange={(e) => setNewLot({ ...newLot, received_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-
-                {/* Sertifika Dosyası */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika Dosyası</label>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setLotCertificateFiles(files);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {lotCertificateFiles.length > 0 && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      <div className="font-medium text-gray-700 mb-1">Seçilen dosyalar:</div>
-                      <ul className="list-disc pl-5">
-                        {lotCertificateFiles.map((f, idx) => (
-                          <li key={`${f.name}-${idx}`}>
-                            {f.name}{' '}
-                            <span className="text-gray-400">({Math.round(f.size / 1024)} KB)</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <button
-                        type="button"
-                        onClick={() => setLotCertificateFiles([])}
-                        className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
-                      >
-                        Dosyaları Temizle
-                      </button>
+              {showItemForm && (
+                <form onSubmit={handleCreateItem} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Stok Kalemi Girişi (Hammadde)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Kategori *</label>
+                      <select value={newItem.category_id} onChange={e => setNewItem({ ...newItem, category_id: e.target.value })} className={inputCls} required>
+                        <option value="">Seçiniz</option>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLotForm(false);
-                    setLotCertificateFiles([]);
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  İptal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Oluştur
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* ======================================
-              FILTER CARD
-          ====================================== */}
-          {showFilters && <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Filtreler</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleResetFilters}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Temizle
-                </button>
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"
-                  title="Filtreleri kapat"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Row 1: text search + dropdowns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-              {/* Free text */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Arama (sertifika no, ürün...)</label>
-                <input
-                  type="text"
-                  placeholder="ör. 6063, Ø152, CERT-001"
-                  value={lotFilters.text}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, text: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-
-              {/* Çelik Ürün */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Çelik Ürün</label>
-                <select
-                  value={lotFilters.stockItemId}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, stockItemId: e.target.value }))}
-                  className={inputCls}
-                >
-                  <option value="">Tümü</option>
-                  {stockItems.map((item) => (
-                    <option key={item.id} value={String(item.id)}>
-                      {item.alloy} – Ø{item.diameter_mm}mm
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Tedarikçi */}
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Tedarikçi</label>
-                <select
-                  value={lotFilters.supplierId}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, supplierId: e.target.value }))}
-                  className={inputCls}
-                >
-                  <option value="">Tümü</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={String(s.id)}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Row 2: numeric ranges */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Brüt Ağırlık min (kg)</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  min="0"
-                  step="0.01"
-                  value={lotFilters.grossMin}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, grossMin: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Brüt Ağırlık max (kg)</label>
-                <input
-                  type="number"
-                  placeholder="∞"
-                  min="0"
-                  step="0.01"
-                  value={lotFilters.grossMax}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, grossMax: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Kalan min (kg)</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  min="0"
-                  step="0.01"
-                  value={lotFilters.remainingMin}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, remainingMin: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Kalan max (kg)</label>
-                <input
-                  type="number"
-                  placeholder="∞"
-                  min="0"
-                  step="0.01"
-                  value={lotFilters.remainingMax}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, remainingMax: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            {/* Row 3: date range */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Giriş Tarihi (başlangıç)</label>
-                <input
-                  type="date"
-                  value={lotFilters.dateFrom}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, dateFrom: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Giriş Tarihi (bitiş)</label>
-                <input
-                  type="date"
-                  value={lotFilters.dateTo}
-                  onChange={(e) => setLotFilters((f) => ({ ...f, dateTo: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-          </div>}
-
-          {/* ======================================
-              TOTALS BAR
-          ====================================== */}
-          <div className="flex flex-wrap gap-3 mb-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 font-medium">
-              Toplam Lot: <strong>{lotTotals.count}</strong>
-              {lotTotals.count !== lots.length && (
-                <span className="text-gray-400 font-normal">/ {lots.length}</span>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Lot</label>
+                      <select value={newItem.lot_id} onChange={e => setNewItem({ ...newItem, lot_id: e.target.value })} className={inputCls}>
+                        <option value="">Lot Seçiniz (Opsiyonel)</option>
+                        {lots.map(l => <option key={l.id} value={l.id}>{l.lot_number}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Lokasyon</label>
+                      <select value={newItem.location_id} onChange={e => setNewItem({ ...newItem, location_id: e.target.value })} className={inputCls}>
+                        <option value="">Lokasyon Seçiniz</option>
+                        {[...locations]
+                          .sort((a, b) => {
+                            if (a.location_type === 'WAREHOUSE' && b.location_type !== 'WAREHOUSE') return -1;
+                            if (a.location_type !== 'WAREHOUSE' && b.location_type === 'WAREHOUSE') return 1;
+                            return a.name.localeCompare(b.name);
+                          })
+                          .map(l => (
+                            <option key={l.id} value={l.id}>
+                              {l.name} ({l.location_type === 'WAREHOUSE' ? 'Depo' : 'Üretim Alanı'})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Miktar *</label>
+                      <input type="number" step="0.01" value={newItem.quantity} onChange={e => setNewItem({ ...newItem, quantity: e.target.value })} className={inputCls} required />
+                    </div>
+                    <div className="col-span-1 md:col-span-2 border-l-2 border-blue-200 pl-4">
+                      <p className="text-xs font-semibold text-gray-500 mb-2">ÖZELLİKLER (ATTRIBUTES)</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Çap (mm)</label>
+                          <input type="number" value={newItem.attrDiameter} onChange={e => setNewItem({ ...newItem, attrDiameter: e.target.value })} className={inputCls} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Uzunluk (mm)</label>
+                          <input type="number" value={newItem.attrLength} onChange={e => setNewItem({ ...newItem, attrLength: e.target.value })} className={inputCls} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 justify-end mt-6">
+                    <button type="button" onClick={() => setShowItemForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">İptal</button>
+                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Oluştur</button>
+                  </div>
+                </form>
               )}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-full text-sm text-blue-700 font-medium">
-              Toplam Brüt: <strong>{lotTotals.totalGross.toFixed(2)} kg</strong>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 rounded-full text-sm text-green-700 font-medium">
-              Toplam Kalan: <strong>{lotTotals.totalRemaining.toFixed(2)} kg</strong>
-            </span>
-          </div>
 
-          {/* ======================================
-              LOTS TABLE
-          ====================================== */}
-          {lots.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz lot yok</h3>
-              <p className="text-gray-600">Yukarıdaki butonu kullanarak yeni lot ekleyin</p>
-            </div>
-          ) : sortedLots.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-700 mb-2">Filtreye uyan lot bulunamadı</h3>
-              <p className="text-gray-500 mb-4">Filtre kriterlerini değiştirin veya temizleyin.</p>
-              <button
-                onClick={handleResetFilters}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-              >
-                <X className="w-4 h-4" />
-                Filtreleri Temizle
-              </button>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    {/* Sortable: Sertifika No */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button
-                        onClick={() => handleSort('certificate_number')}
-                        className="flex items-center hover:text-gray-700 transition-colors"
-                      >
-                        Sertifika No
-                        <SortIcon col="certificate_number" sortKey={sortKey} sortDir={sortDir} />
-                      </button>
-                    </th>
-                    {/* Sortable: Ürün */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button
-                        onClick={() => handleSort('product')}
-                        className="flex items-center hover:text-gray-700 transition-colors"
-                      >
-                        Ürün
-                        <SortIcon col="product" sortKey={sortKey} sortDir={sortDir} />
-                      </button>
-                    </th>
-                    {/* Sortable: Tedarikçi */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button
-                        onClick={() => handleSort('supplier')}
-                        className="flex items-center hover:text-gray-700 transition-colors"
-                      >
-                        Tedarikçi
-                        <SortIcon col="supplier" sortKey={sortKey} sortDir={sortDir} />
-                      </button>
-                    </th>
-                    {/* Sortable: Brüt Ağırlık */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button
-                        onClick={() => handleSort('gross_weight_kg')}
-                        className="flex items-center hover:text-gray-700 transition-colors"
-                      >
-                        Brüt Ağırlık
-                        <SortIcon col="gross_weight_kg" sortKey={sortKey} sortDir={sortDir} />
-                      </button>
-                    </th>
-                    {/* Sortable: Kalan */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button
-                        onClick={() => handleSort('remaining_kg')}
-                        className="flex items-center hover:text-gray-700 transition-colors"
-                      >
-                        Kalan
-                        <SortIcon col="remaining_kg" sortKey={sortKey} sortDir={sortDir} />
-                      </button>
-                    </th>
-                    {/* Sortable: Giriş Tarihi */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button
-                        onClick={() => handleSort('received_date')}
-                        className="flex items-center hover:text-gray-700 transition-colors"
-                      >
-                        Giriş Tarihi
-                        <SortIcon col="received_date" sortKey={sortKey} sortDir={sortDir} />
-                      </button>
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Dosyalar
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      İşlemler
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {sortedLots.map((lot) => (
-                    <tr key={lot.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {lot.certificate_number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {lot.stock_item?.alloy} - Ø{lot.stock_item?.diameter_mm}mm
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {/* Prefer linked supplier name, fall back to legacy string */}
-                        {lot.supplier_ref?.name ?? lot.supplier}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {Number(lot.gross_weight_kg).toFixed(2)} kg
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span
-                          className={
-                            Number(lot.remaining_kg) > 0 ? 'text-green-600 font-medium' : 'text-red-600'
-                          }
-                        >
-                          {Number(lot.remaining_kg).toFixed(2)} kg
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {new Date(lot.received_date).toLocaleDateString('tr-TR')}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {lot.files && lot.files.length > 0 ? (
-                          <div className="flex items-center gap-2">
-                            {lot.files.map((f) => (
-                              <a
-                                key={f.id}
-                                href={mediaUrl(f.storage_path)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={f.original_name}
-                                className="text-blue-600 hover:text-blue-800 transition-colors"
-                              >
-                                <FileText className="w-5 h-5" />
-                              </a>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <button
-                          onClick={() => handleDeleteLot(lot.id)}
-                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                          title="Lotu Sil"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Sil
-                        </button>
-                      </td>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID / Tür</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori & Lot</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lokasyon</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Özellikler</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Miktar</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">İşlemler</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* STOK HAREKETLERİ */}
-      {activeTab === 'movements' && (
-        <div>
-          {movements.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz hareket yok</h3>
-              <p className="text-gray-600">İş emirleri tamamlandığında stok hareketleri burada görünecektir</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tarih
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      İş Emri No
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Kalıp / Bileşen
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Lot
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Miktar
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {movements.map((movement) => {
-                    const wo = movement.work_order;
-                    const lot = movement.lot;
-                    const stockItem = lot?.stock_item;
-                    const alloyDiam = stockItem
-                      ? `${stockItem.alloy} Ø${stockItem.diameter_mm}mm`
-                      : '-';
-                    const supplierName =
-                      lot?.supplier_ref?.name ?? lot?.supplier ?? '-';
-                    const dieNumber = wo?.production_order?.die?.die_number;
-                    const componentName = wo?.die_component?.component_type?.name;
-                    const dieComponent = [dieNumber, componentName]
-                      .filter(Boolean)
-                      .join(' / ') || '-';
-
-                    return (
-                      <tr key={movement.id} className="hover:bg-gray-50">
-                        {/* Tarih */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(movement.movement_date).toLocaleString('tr-TR')}
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {stockItems.map((item) => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-gray-900">#{item.id}</div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${item.item_type === 'RAW_MATERIAL' ? 'bg-purple-100 text-purple-800' :
+                              item.item_type === 'WIP' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                            {item.item_type}
+                          </span>
                         </td>
-
-                        {/* İş Emri No */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {wo?.order_number ?? '-'}
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900">{item.category?.name || '-'}</div>
+                          <div className="text-xs text-gray-500">Lot: {item.lot?.lot_number || '-'}</div>
                         </td>
-
-                        {/* Kalıp / Bileşen */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {dieComponent}
+                        <td className="px-6 py-4 text-sm text-gray-600">{item.location?.name || '-'}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {item.attributes ? Object.entries(item.attributes).map(([k, v]) => (
+                              <span key={k} className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs border border-blue-200">
+                                {k}: {v as string}
+                              </span>
+                            )) : <span className="text-gray-400 text-xs">-</span>}
+                          </div>
                         </td>
-
-                        {/* Lot: alloy+diameter + supplier */}
-                        <td className="px-6 py-4 text-sm">
-                          <span className="font-medium text-gray-900">{alloyDiam}</span>
-                          <br />
-                          <span className="text-gray-500 text-xs">{supplierName}</span>
+                        <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
+                          {Number(item.quantity).toFixed(2)} {item.category?.base_uom || ''}
                         </td>
-
-                        {/* Miktar */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                          -{Number(movement.quantity_kg).toFixed(2)} kg
+                        <td className="px-6 py-4 text-center">
+                          {item.item_type === 'RAW_MATERIAL' && item.quantity > 0 && (
+                            <button
+                              onClick={() => {
+                                setCutData({ parent_id: item.id, cut_quantity: '', cut_length: '', notes: '' });
+                                setShowCutModal(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 transition-colors text-xs font-medium border border-indigo-200"
+                            >
+                              <Scissors className="w-3 h-3" /> Kes
+                            </button>
+                          )}
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                    {stockItems.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* LOTS TAB */}
+          {activeTab === 'lots' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Lot Yönetimi</h2>
+                <button onClick={() => setShowLotForm(!showLotForm)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                  <Plus className="w-4 h-4" /> Yeni Lot
+                </button>
+              </div>
+
+              {showLotForm && (
+                <form onSubmit={handleCreateLot} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Lot Girişi</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Lot No *</label>
+                      <input type="text" value={newLot.lot_number} onChange={e => setNewLot({ ...newLot, lot_number: e.target.value })} className={inputCls} required />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Sertifika No</label>
+                      <input type="text" value={newLot.certificate_number} onChange={e => setNewLot({ ...newLot, certificate_number: e.target.value })} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Giriş Tarihi *</label>
+                      <input type="date" value={newLot.receive_date} onChange={e => setNewLot({ ...newLot, receive_date: e.target.value })} className={inputCls} required />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Alaşım</label>
+                      <select value={newLot.material_grade_id} onChange={e => setNewLot({ ...newLot, material_grade_id: e.target.value })} className={inputCls}>
+                        <option value="">Seçiniz</option>
+                        {materialGrades.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="lg:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tedarikçi</label>
+                      <div className="flex gap-2">
+                        <select value={newLot.supplier_id} onChange={e => setNewLot({ ...newLot, supplier_id: e.target.value })} className={inputCls}>
+                          <option value="">Seçiniz</option>
+                          {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <button type="button" onClick={() => setShowQuickSupplier(true)} className="px-3 py-2 border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 text-sm whitespace-nowrap">
+                          + Yeni
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 justify-end mt-6">
+                    <button type="button" onClick={() => setShowLotForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">İptal</button>
+                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Oluştur</button>
+                  </div>
+                </form>
+              )}
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lot No</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sertifika</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tedarikçi</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Alaşım</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giriş Tarihi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {lots.map((lot) => (
+                      <tr key={lot.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 font-medium text-gray-900">{lot.lot_number}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{lot.certificate_number || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{lot.supplier?.name || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{lot.material_grade?.name || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{new Date(lot.receive_date).toLocaleDateString('tr-TR')}</td>
+                      </tr>
+                    ))}
+                    {lots.length === 0 && (
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TRANSACTIONS TAB */}
+          {activeTab === 'transactions' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-gray-900">İşlem Geçmişi</h2>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarih</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tür</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stok ID</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Değişim</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sonraki Miktar</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notlar / Meta</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {transactions.map((t) => (
+                      <tr key={t.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-600">{new Date(t.timestamp).toLocaleString('tr-TR')}</td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                            {t.transaction_type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-blue-600">#{t.stock_item_id}</td>
+                        <td className={`px-6 py-4 text-sm font-bold text-right ${Number(t.quantity_change) > 0 ? 'text-green-600' : Number(t.quantity_change) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                          {Number(t.quantity_change) > 0 ? '+' : ''}{Number(t.quantity_change).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-right text-gray-900">{Number(t.quantity_after).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
+                          {t.notes && <div className="text-gray-900 mb-1">{t.notes}</div>}
+                          {t.meta_data && JSON.stringify(t.meta_data)}
+                        </td>
+                      </tr>
+                    ))}
+                    {transactions.length === 0 && (
+                      <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">İşlem geçmişi bulunamadı.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* CATEGORIES TAB */}
+          {activeTab === 'categories' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Kategoriler</h2>
+                <button onClick={() => openCategoryModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                  <Plus className="w-4 h-4" /> Yeni Kategori
+                </button>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                      <th className="px-6 py-3 font-medium">ID</th>
+                      <th className="px-6 py-3 font-medium">İsim</th>
+                      <th className="px-6 py-3 font-medium">Birim</th>
+                      <th className="px-6 py-3 font-medium">Kesilebilir mi?</th>
+                      <th className="px-6 py-3 font-medium text-right">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {categories.map((cat) => (
+                      <tr key={cat.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-500">{cat.id}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{cat.name}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{cat.base_uom}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {cat.is_cuttable ? (
+                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Evet</span>
+                          ) : (
+                            <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">Hayır</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right space-x-2">
+                          <button onClick={() => openCategoryModal(cat)} className="text-blue-600 hover:text-blue-800 p-1">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-600 hover:text-red-800 p-1">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {categories.length === 0 && (
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* LOCATIONS TAB */}
+          {activeTab === 'locations' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Lokasyonlar</h2>
+                <button onClick={() => openLocationModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                  <Plus className="w-4 h-4" /> Yeni Lokasyon
+                </button>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                      <th className="px-6 py-3 font-medium">ID</th>
+                      <th className="px-6 py-3 font-medium">İsim</th>
+                      <th className="px-6 py-3 font-medium">Tip</th>
+                      <th className="px-6 py-3 font-medium">Açıklama</th>
+                      <th className="px-6 py-3 font-medium text-right">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {locations.map((loc) => (
+                      <tr key={loc.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-500">{loc.id}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{loc.name}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{loc.location_type}</td>
+                        <td className="px-6 py-4 text-sm text-gray-500">{loc.description || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-right space-x-2">
+                          {loc.location_type === 'WORK_CENTER' ? (
+                            <div className="inline-flex items-center text-xs text-gray-400 gap-1 bg-gray-50 px-2 py-1 rounded">
+                              <Lock className="w-3 h-3" /> Oto-Yönetim
+                            </div>
+                          ) : (
+                            <>
+                              <button onClick={() => openLocationModal(loc)} className="text-blue-600 hover:text-blue-800 p-1">
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDeleteLocation(loc.id)} className="text-red-600 hover:text-red-800 p-1">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {locations.length === 0 && (
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* MATERIAL GRADES TAB */}
+          {activeTab === 'material_grades' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Alaşımlar</h2>
+                <button onClick={() => openMaterialGradeModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                  <Plus className="w-4 h-4" /> Yeni Alaşım
+                </button>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                      <th className="px-6 py-3 font-medium">ID</th>
+                      <th className="px-6 py-3 font-medium">Alaşım İsmi</th>
+                      <th className="px-6 py-3 font-medium">Kimyasal Kompozisyon</th>
+                      <th className="px-6 py-3 font-medium text-right">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {materialGrades.map((mg) => (
+                      <tr key={mg.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-500">{mg.id}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{mg.name}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {mg.composition && Object.keys(mg.composition).length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(mg.composition).map(([el, val]) => (
+                                <span key={el} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs border border-gray-200">
+                                  {el}: {val as number}%
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic">Belirtilmemiş</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right space-x-2">
+                          <button onClick={() => openMaterialGradeModal(mg)} className="text-blue-600 hover:text-blue-800 p-1">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteMaterialGrade(mg.id)} className="text-red-600 hover:text-red-800 p-1">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {materialGrades.length === 0 && (
+                      <tr><td colSpan={4} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* MODALS */}
+      {/* ========================================================= */}
+
+      {/* CUT STEEL MODAL */}
+      {showCutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Scissors className="w-5 h-5 text-indigo-600" />
+              Çelik Kesme (WIP Oluştur)
+            </h2>
+            <form onSubmit={handleCutSteel}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kaynak Stok ID</label>
+                  <input type="text" value={`#${cutData.parent_id}`} disabled className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kesilecek Miktar (kg) *</label>
+                  <input type="number" step="0.01" value={cutData.cut_quantity} onChange={e => setCutData({ ...cutData, cut_quantity: e.target.value })} className={inputCls} required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kesilen Parça Uzunluğu (mm) *</label>
+                  <input type="number" step="0.1" value={cutData.cut_length} onChange={e => setCutData({ ...cutData, cut_length: e.target.value })} className={inputCls} required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notlar</label>
+                  <input type="text" value={cutData.notes} onChange={e => setCutData({ ...cutData, notes: e.target.value })} className={inputCls} />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowCutModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">İptal</button>
+                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">Kesimi Tamamla</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      {/* ========================================
-          QUICK-CREATE SUPPLIER MODAL
-          ======================================== */}
+      {/* QUICK SUPPLIER MODAL */}
       {showQuickSupplier && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <Truck className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-bold text-gray-900">Yeni Tedarikçi</h2>
-              </div>
-              <button
-                onClick={() => {
-                  setShowQuickSupplier(false);
-                  setQuickForm(EMPTY_SUPPLIER_FORM);
-                  setQuickError('');
-                }}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <form onSubmit={handleQuickSupplierCreate} className="p-6 space-y-4">
-              {quickError && (
-                <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-100 text-sm text-red-700">
-                  {quickError}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Hızlı Tedarikçi Ekle</h2>
+            {quickError && <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg">{quickError}</div>}
+            <form onSubmit={handleQuickSupplierCreate}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Firma Adı *</label>
+                  <input type="text" value={quickForm.name} onChange={e => setQuickForm({ ...quickForm, name: e.target.value })} className={inputCls} required />
                 </div>
-              )}
-
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tedarikçi Adı <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={quickForm.name ?? ''}
-                  onChange={(e) => setQuickForm({ ...quickForm, name: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="ör. Çelik Metal A.Ş."
-                  required
-                  autoFocus
-                />
-              </div>
-
-              {/* Two-col */}
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Vergi No</label>
-                  <input
-                    type="text"
-                    value={quickForm.tax_no ?? ''}
-                    onChange={(e) => setQuickForm({ ...quickForm, tax_no: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="ör. 1234567890"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">İletişim Kişisi</label>
-                  <input
-                    type="text"
-                    value={quickForm.contact_name ?? ''}
-                    onChange={(e) => setQuickForm({ ...quickForm, contact_name: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="ör. Ahmet Yılmaz"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
-                  <input
-                    type="tel"
-                    value={quickForm.phone ?? ''}
-                    onChange={(e) => setQuickForm({ ...quickForm, phone: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="+90 532 000 00 00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">E-posta</label>
-                  <input
-                    type="email"
-                    value={quickForm.email ?? ''}
-                    onChange={(e) => setQuickForm({ ...quickForm, email: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="info@firma.com"
-                  />
+                  <input type="text" value={quickForm.tax_no} onChange={e => setQuickForm({ ...quickForm, tax_no: e.target.value })} className={inputCls} />
                 </div>
               </div>
-
-              {/* Actions */}
-              <div className="flex justify-end gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowQuickSupplier(false);
-                    setQuickForm(EMPTY_SUPPLIER_FORM);
-                    setQuickError('');
-                  }}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                  İptal
-                </button>
-                <button
-                  type="submit"
-                  disabled={quickSubmitting}
-                  className="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                >
-                  {quickSubmitting ? 'Kaydediliyor...' : 'Oluştur & Seç'}
-                </button>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowQuickSupplier(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">İptal</button>
+                <button type="submit" disabled={quickSubmitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50">Kaydet</button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Category Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              {editingCategory ? 'Kategori Düzenle' : 'Yeni Kategori'}
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">İsim *</label>
+                <input
+                  type="text"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                  className={inputCls}
+                  placeholder="Örn: Hammadde, Bitmiş Ürün..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Temel Birim (UoM) *</label>
+                <input
+                  type="text"
+                  value={categoryForm.base_uom}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, base_uom: e.target.value })}
+                  className={inputCls}
+                  placeholder="kg, adet, m..."
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <input
+                  type="checkbox"
+                  id="is_cuttable"
+                  checked={categoryForm.is_cuttable}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, is_cuttable: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <label htmlFor="is_cuttable" className="text-sm font-medium text-gray-700">
+                  Kesilebilir (Testere ile kesilip WIP oluşturulabilir mi?)
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowCategoryModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
+              <button onClick={handleSaveCategory} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Location Modal */}
+      {showLocationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              {editingLocation ? 'Lokasyon Düzenle' : 'Yeni Lokasyon'}
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">İsim *</label>
+                <input
+                  type="text"
+                  value={locationForm.name}
+                  onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
+                  className={inputCls}
+                  placeholder="Ana Depo, Testere Alanı..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tip *</label>
+                <select
+                  value={locationForm.location_type}
+                  onChange={(e) => setLocationForm({ ...locationForm, location_type: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="WAREHOUSE">Depo (Warehouse)</option>
+                  <option value="WORK_CENTER">Üretim Alanı (WorkCenter)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
+                <textarea
+                  value={locationForm.description}
+                  onChange={(e) => setLocationForm({ ...locationForm, description: e.target.value })}
+                  className={inputCls}
+                  rows={2}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowLocationModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
+              <button onClick={handleSaveLocation} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Material Grade Modal */}
+      {showMaterialGradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 my-8">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              {editingMaterialGrade ? 'Alaşım Düzenle' : 'Yeni Alaşım'}
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Alaşım İsmi *</label>
+                <input
+                  type="text"
+                  value={materialGradeForm.name}
+                  onChange={(e) => setMaterialGradeForm({ name: e.target.value })}
+                  className={inputCls}
+                  placeholder="Örn: 1.2344 (H13)"
+                />
+              </div>
+              
+              <div className="pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Kimyasal Kompozisyon (%)</label>
+                  <button
+                    onClick={() => setCompositionList([...compositionList, { element: '', percentage: '' }])}
+                    className="text-xs text-blue-600 font-medium hover:text-blue-800 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Ekle
+                  </button>
+                </div>
+                
+                <div className="space-y-2">
+                  {compositionList.map((item, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="Element (C, Cr)"
+                        value={item.element}
+                        onChange={(e) => {
+                          const newList = [...compositionList];
+                          newList[index].element = e.target.value;
+                          setCompositionList(newList);
+                        }}
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent uppercase"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Yüzde (%)"
+                        value={item.percentage}
+                        onChange={(e) => {
+                          const newList = [...compositionList];
+                          newList[index].percentage = e.target.value === '' ? '' : Number(e.target.value);
+                          setCompositionList(newList);
+                        }}
+                        className="w-24 px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        onClick={() => {
+                          const newList = compositionList.filter((_, i) => i !== index);
+                          setCompositionList(newList.length ? newList : [{ element: '', percentage: '' }]);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  İsteğe bağlıdır. Element sembolü ve yüzde oranını girin.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowMaterialGradeModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
+              <button onClick={handleSaveMaterialGrade} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

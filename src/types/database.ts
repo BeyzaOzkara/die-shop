@@ -39,12 +39,11 @@ export interface WorkCenter {
   id: number;
   name: string;
   status: WorkCenterStatus;
-  location?: string | null;
   capacity_per_hour?: number | null;
   setup_time_minutes?: number | null;
   cost_per_hour?: number | null;
   created_at: string;
-  
+
   operation_types?: OperationType[];
 }
 
@@ -84,7 +83,8 @@ export interface OperationType {
   description?: string | null;
   is_active: boolean;
   created_at: string;
-  execution_mode:'Single' | 'Batch';
+  execution_mode: 'Single' | 'Batch';
+  is_cutting?: boolean;
 }
 
 // ===========================
@@ -109,32 +109,84 @@ export interface ComponentBOM {
 }
 
 // ===========================
-// STEEL STOCK & LOT
+// MASTER DATA (NEW)
 // ===========================
 
-export interface SteelStockItem {
+export interface ItemCategory {
   id: number;
-  alloy: string;
-  diameter_mm: number;
-  description?: string | null;
+  name: string;
+  base_uom: string;
+  is_cuttable: boolean;
   created_at: string;
 }
 
+export interface MaterialGrade {
+  id: number;
+  name: string;
+  composition?: Record<string, number> | null;
+  created_at: string;
+}
+
+export interface Location {
+  id: number;
+  name: string;
+  location_type: string;
+  description?: string | null;
+  work_center_id?: number | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+// ===========================
+// UNIFIED INVENTORY
+// ===========================
+
 export interface Lot {
   id: number;
-  stock_item_id: number;
-  certificate_number: string;
-  supplier: string;
+  lot_number: string;
+  certificate_number?: string | null;
+  receive_date: string;
   supplier_id?: number | null;
-  length_mm: number;
-  gross_weight_kg: number;
-  remaining_kg: number;
-  certificate_file_url?: string | null;
-  received_date: string;
+  material_grade_id?: number | null;
+  notes?: string | null;
   created_at: string;
-  stock_item?: SteelStockItem;
-  supplier_ref?: Supplier | null;
+
+  supplier?: Supplier | null;
+  material_grade?: MaterialGrade | null;
   files?: FileItem[];
+}
+
+export interface StockItem {
+  id: number;
+  item_type: 'RAW_MATERIAL' | 'WIP' | 'FINISHED_GOOD';
+  category_id: number;
+  lot_id?: number | null;
+  parent_id?: number | null;
+  location_id?: number | null;
+  quantity: number;
+  attributes?: Record<string, any> | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+
+  category?: ItemCategory | null;
+  lot?: Lot | null;
+  location?: Location | null;
+}
+
+export interface ProcessBatch {
+  id: number;
+  batch_number: string;
+  operation_type: string;
+  status: string;
+  process_parameters?: Record<string, any> | null;
+  result_attributes?: Record<string, any> | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  notes?: string | null;
+  created_at: string;
+
+  stock_items?: StockItem[];
 }
 
 // ===========================
@@ -159,7 +211,7 @@ export interface Supplier {
 // DIE & COMPONENT
 // ===========================
 
-export interface FileItem { 
+export interface FileItem {
   id: number;
   original_name: string;
   storage_path: string;
@@ -191,11 +243,14 @@ export interface Die {
   figure_count: number;
   customer_name: string;
   press_code: string;
+  description?: string | null; // Açıklama
 
   is_revisioned: boolean;
+  expected_completion_date?: string | null; // Ön Görülen Termin (YYYY-MM-DD)
 
   // Supabase'te de benzer mantık vardı; backend FastAPI bunu die_type_ref olarak döndürüyor.
   die_type_ref?: DieTypeRef;
+  die_type?: DieTypeRef; // Backend'deki DieNested modeli "die_type" olarak donuyor
   files?: FileItem[];
   components?: DieComponent[];
 }
@@ -204,12 +259,12 @@ export interface DieComponent {
   id: number;
   die_id: number;
   component_type_id: number;
-  stock_item_id: number;
+  stock_item_id?: number | null;
   package_length_mm: number;
   theoretical_consumption_kg: number;
   created_at: string;
   component_type?: ComponentType;
-  stock_item?: SteelStockItem;
+  stock_item?: StockItem;
 }
 
 // ===========================
@@ -233,15 +288,22 @@ export interface ProductionOrder {
 
 export interface WorkOrder {
   id: number;
-  production_order_id: number;
-  die_component_id: number;
-  order_number: string;
+  production_order_id?: number | null;
+  die_component_id?: number | null;
+  order_number?: string | null;
+  pre_machining_order_number?: string | null;
+  
   status: OrderStatus;
   theoretical_consumption_kg: number;
   actual_consumption_kg?: number | null;
+  
+  planned_cut_length_mm?: number | null;
+  planned_cut_weight_kg?: number | null;
+  actual_cut_length_mm?: number | null;
+  actual_cut_weight_kg?: number | null;
 
-  // Backend: lot_id: Optional[int]
   lot_id?: number | null;
+  stock_item_id?: number | null;
 
   started_at?: string | null;
   completed_at?: string | null;
@@ -261,7 +323,7 @@ export interface WorkOrderOperation {
   sequence_number: number;
 
   operation_type_id: number;
-  operation_name: string; 
+  operation_name: string;
   work_center_id: number | null; // bundan emin değilim
 
   preferred_work_center_id?: number | null;
@@ -274,25 +336,31 @@ export interface WorkOrderOperation {
   notes?: string | null;
   created_at: string;
   work_center?: WorkCenter;
-  operation_type?: OperationType; 
+  operation_type?: OperationType;
   work_order?: WorkOrder;
   meta_data?: Record<string, any>;
 }
 
 // ===========================
-// STOCK MOVEMENTS
+// STOCK TRANSACTIONS (LEDGER)
 // ===========================
 
-export interface StockMovement {
+export interface StockTransaction {
   id: number;
-  lot_id: number;
-  work_order_id: number;
-  quantity_kg: number;
-  movement_date: string;
+  stock_item_id: number;
+  transaction_type: 'RECEIVE' | 'CUT' | 'CONSUME' | 'PRODUCE' | 'ADJUST' | 'BATCH_PROCESS' | 'MOVE';
+  quantity_change: number;
+  quantity_after: number;
+  work_order_id?: number | null;
+  process_batch_id?: number | null;
+  reference_item_id?: number | null;
   notes?: string | null;
-  created_at: string;
-  lot?: Lot;
+  meta_data?: Record<string, any> | null;
+  timestamp: string;
+
+  stock_item?: StockItem;
   work_order?: WorkOrder;
+  process_batch?: ProcessBatch;
 }
 
 // operator eklenecek
@@ -301,7 +369,7 @@ export interface Operator {
   rfid_code: string;
   name: string;
   employee_number?: string;
-  role: OperatorRole;      
+  role: OperatorRole;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -322,6 +390,9 @@ export interface OperationTypeNested { // Mevcut OperationType'dan farklı (back
   id: number;
   code: string;
   name: string;
+  description?: string;
+  is_active: boolean;
+  is_cutting?: boolean;
 }
 
 export interface BOMOperationPreview {
@@ -343,6 +414,7 @@ export interface ComponentPreview {
   package_length_mm: number;
   theoretical_consumption_kg: number;
   bom_operations: BOMOperationPreview[];
+  completed_operations_on_stock?: string[];
 }
 
 export interface WorkOrderPreviewResponse {
@@ -352,3 +424,4 @@ export interface WorkOrderPreviewResponse {
   total_components: number;
   total_operations: number;
 }
+

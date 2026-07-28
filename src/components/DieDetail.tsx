@@ -24,7 +24,7 @@ export function DieDetail({ dieId, onClose, onDeleted, onCopyRequested }: DieDet
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
-    useEffect(() => { 
+    useEffect(() => {
         loadDie();
     }, [dieId]);
 
@@ -51,7 +51,7 @@ export function DieDetail({ dieId, onClose, onDeleted, onCopyRequested }: DieDet
             // Success
             alert('Kalıp başarıyla silindi.');
             setIsDeleteModalOpen(false);
-            onDeleted?.(); 
+            onDeleted?.();
             onClose(); // Close detail view
         } catch (error: any) {
             if (error.response?.status === 409) {
@@ -132,6 +132,12 @@ export function DieDetail({ dieId, onClose, onDeleted, onCopyRequested }: DieDet
                         <div className="text-xs text-gray-500 mb-1">Pres Kodu</div>
                         <div className="font-medium">{die.press_code ?? '-'}</div>
                     </div>
+                    {die.description && (
+                        <div className="col-span-2 p-3 bg-gray-50 rounded-lg">
+                            <div className="text-xs text-gray-500 mb-1">Açıklama</div>
+                            <div className="font-medium text-gray-800 whitespace-pre-wrap">{die.description}</div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Timestamps */}
@@ -143,6 +149,14 @@ export function DieDetail({ dieId, onClose, onDeleted, onCopyRequested }: DieDet
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
                         <div className="text-gray-500">Oluşturulma:</div>
                         <div className="text-right"><DateDisplay date={die.created_at} /></div>
+                        <div className="text-gray-500">Son Güncelleme:</div>
+                        <div className="text-right"><DateDisplay date={die.updated_at} /></div>
+                        <div className="text-gray-500">Ön Görülen Termin:</div>
+                        <div className="text-right">
+                            {die.expected_completion_date
+                                ? new Date(die.expected_completion_date).toLocaleDateString('tr-TR')
+                                : <span className="text-gray-400">—</span>}
+                        </div>
                     </div>
                 </div>
 
@@ -158,7 +172,7 @@ export function DieDetail({ dieId, onClose, onDeleted, onCopyRequested }: DieDet
                                 <span className="font-medium text-gray-700">
                                     {comp.component_type?.name ?? `Tip ${comp.component_type_id}`}
                                 </span>
-                                {comp.stock_item?.alloy} (Ø{comp.stock_item?.diameter_mm})
+                                {comp.stock_item?.attributes?.alloy} (Ø{comp.stock_item?.attributes?.diameter_mm})
                             </div>
                         ))}
                     </div>

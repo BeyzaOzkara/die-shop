@@ -193,6 +193,23 @@ export function OperationPlanningModal({
                     </button>
                   </div>
 
+                  {/* WIP Tamamlanan İşlemler Uyarı */}
+                  {comp.completed_operations_on_stock && comp.completed_operations_on_stock.length > 0 && (
+                    <div className="bg-amber-50 px-4 py-3 border-b border-amber-200 flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-900">
+                          Bu stok önceden işlenmiş bir yarımamüldür (WIP).
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1">
+                          Aşağıdaki işlemler ön işleme aşamasında zaten tamamlanmıştır, gereksizse seçimi kaldırabilirsiniz:
+                          <br />
+                          <span className="font-semibold">{comp.completed_operations_on_stock.join(", ")}</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Operations List */}
                   <div className="divide-y divide-gray-100">
                     {comp.bom_operations.map((op) => {

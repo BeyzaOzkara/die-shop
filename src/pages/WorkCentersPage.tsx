@@ -4,6 +4,10 @@ import { getWorkCenters, createWorkCenter, updateWorkCenter } from '../services/
 import { getOperationsByWorkCenter } from '../services/orderService';
 import { getOperationTypes } from '../services/operationTypeService';
 import type { WorkCenter, WorkOrderOperation, OperationStatus, OperationType } from '../types/database';
+import {
+  getLastOperatorsForOperations,
+  type LastOperatorInfo,
+} from '../services/operatorService';
 
 export function WorkCentersPage() {
   const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
@@ -13,12 +17,12 @@ export function WorkCentersPage() {
   const [loading, setLoading] = useState(true);
   const [operationTypes, setOperationTypes] = useState<OperationType[]>([]);
   const [selectedOpTypeIds, setSelectedOpTypeIds] = useState<number[]>([]);
+  const [lastOperatorMap, setLastOperatorMap] = useState<Record<string, LastOperatorInfo>>({});
 
 
   const [formData, setFormData] = useState({
     name: '',
     status: 'Available' as WorkCenter['status'],
-    location: '',
     capacity_per_hour: '',
     setup_time_minutes: '',
     cost_per_hour: '',
@@ -60,6 +64,17 @@ export function WorkCentersPage() {
     try {
       const data = await getOperationsByWorkCenter(workCenterId);
       setOperations(data);
+      if (data.length > 0) {
+        const ids = data.map((op: WorkOrderOperation) => op.id);
+        try {
+          const map = await getLastOperatorsForOperations(ids);
+          setLastOperatorMap(map);
+        } catch {
+          // non-critical
+        }
+      } else {
+        setLastOperatorMap({});
+      }
     } catch (error) {
       console.error('Operasyonlar yüklenemedi:', error);
     }
@@ -71,7 +86,6 @@ export function WorkCentersPage() {
       await createWorkCenter({
         name: formData.name,
         status: formData.status,
-        location: formData.location || undefined,
         capacity_per_hour: formData.capacity_per_hour
           ? Number(formData.capacity_per_hour)
           : undefined,
@@ -86,7 +100,6 @@ export function WorkCentersPage() {
       setFormData({
         name: '',
         status: 'Available',
-        location: '',
         capacity_per_hour: '',
         setup_time_minutes: '',
         cost_per_hour: '',
@@ -236,9 +249,8 @@ export function WorkCentersPage() {
                     return (
                       <label
                         key={ot.id}
-                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer ${
-                          checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
-                        }`}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer ${checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -283,19 +295,6 @@ export function WorkCentersPage() {
                 <option value="Busy">Meşgul</option>
                 <option value="UnderMaintenance">Bakımda</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Konum
-              </label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) =>
-                  setFormData({ ...formData, location: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -365,11 +364,10 @@ export function WorkCentersPage() {
               <div
                 key={wc.id}
                 onClick={() => setSelectedWorkCenter(wc)}
-                className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${
-                  selectedWorkCenter?.id === wc.id
+                className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${selectedWorkCenter?.id === wc.id
                     ? 'border-blue-500 shadow-md'
                     : 'border-gray-200 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -411,14 +409,6 @@ export function WorkCentersPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-6">
-                    {selectedWorkCenter.location && (
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <p className="text-sm text-gray-600 mb-1">Konum</p>
-                        <p className="font-medium text-gray-900">
-                          {selectedWorkCenter.location}
-                        </p>
-                      </div>
-                    )}
                     {selectedWorkCenter.capacity_per_hour && (
                       <div className="bg-gray-50 rounded-lg p-4">
                         <p className="text-sm text-gray-600 mb-1">Kapasite</p>
@@ -437,11 +427,10 @@ export function WorkCentersPage() {
                           'Available'
                         )
                       }
-                      className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
-                        selectedWorkCenter.status === 'Available'
+                      className={`flex-1 px-4 py-2 rounded-lg transition-colors ${selectedWorkCenter.status === 'Available'
                           ? 'bg-green-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                        }`}
                     >
                       Müsait
                     </button>
@@ -449,11 +438,10 @@ export function WorkCentersPage() {
                       onClick={() =>
                         handleStatusChange(String(selectedWorkCenter.id), 'Busy')
                       }
-                      className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
-                        selectedWorkCenter.status === 'Busy'
+                      className={`flex-1 px-4 py-2 rounded-lg transition-colors ${selectedWorkCenter.status === 'Busy'
                           ? 'bg-yellow-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                        }`}
                     >
                       Meşgul
                     </button>
@@ -464,11 +452,10 @@ export function WorkCentersPage() {
                           'UnderMaintenance'
                         )
                       }
-                      className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
-                        selectedWorkCenter.status === 'UnderMaintenance'
+                      className={`flex-1 px-4 py-2 rounded-lg transition-colors ${selectedWorkCenter.status === 'UnderMaintenance'
                           ? 'bg-red-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                        }`}
                     >
                       Bakımda
                     </button>
@@ -520,9 +507,9 @@ export function WorkCentersPage() {
                               {getOperationStatusText(op.status)}
                             </span>
                           </div>
-                          {op.operator_name && (
+                          {lastOperatorMap[String(op.id)] && (
                             <p className="text-xs text-gray-500">
-                              Operatör: {op.operator_name}
+                              Son Operatör: {lastOperatorMap[String(op.id)].operator_name}
                             </p>
                           )}
                         </div>
