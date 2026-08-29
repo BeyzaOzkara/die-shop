@@ -112,11 +112,19 @@ export interface ComponentBOM {
 // MASTER DATA (NEW)
 // ===========================
 
+export interface AttributeDefinition {
+  name: string;
+  label: string;
+  type: 'text' | 'number';
+  required?: boolean;
+}
+
 export interface ItemCategory {
   id: number;
   name: string;
   base_uom: string;
   is_cuttable: boolean;
+  attributes_schema?: AttributeDefinition[] | null;
   created_at: string;
 }
 

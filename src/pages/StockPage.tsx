@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Package, Plus, Trash2, Scissors, Database, ArrowRightLeft, Settings, Pencil, Box, MapPin, Beaker, Lock } from 'lucide-react';
 import {
-  getStockItems,
+  getStockItemsPaginated,
   createStockItem,
   getLots,
   createLot,
@@ -32,7 +32,8 @@ import type {
   Supplier,
   Location,
   ItemCategory,
-  MaterialGrade
+  MaterialGrade,
+  AttributeDefinition
 } from '../types/database';
 
 const EMPTY_SUPPLIER_FORM: SupplierCreatePayload = {
@@ -50,6 +51,55 @@ type Tab = 'items' | 'lots' | 'transactions' | 'categories' | 'locations' | 'mat
 export function StockPage() {
   const [activeTab, setActiveTab] = useState<Tab>('items');
   const [loading, setLoading] = useState(true);
+
+  // --- Items Pagination & Filters ---
+  const [itemsFilters, setItemsFilters] = useState({
+    search: '',
+    item_type: '',
+    category_id: '',
+    location_id: '',
+    min_quantity: '',
+    max_quantity: '',
+    attributes_search: ''
+  });
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const LIMIT = 20;
+
+  const fetchItems = useCallback(async (pageToFetch = 1) => {
+    try {
+      setItemsLoading(true);
+      const currentSkip = (pageToFetch - 1) * LIMIT;
+      const res = await getStockItemsPaginated({
+        skip: currentSkip,
+        limit: LIMIT,
+        search: itemsFilters.search || undefined,
+        item_type: itemsFilters.item_type || undefined,
+        category_id: itemsFilters.category_id ? Number(itemsFilters.category_id) : undefined,
+        location_id: itemsFilters.location_id ? Number(itemsFilters.location_id) : undefined,
+        min_quantity: itemsFilters.min_quantity ? Number(itemsFilters.min_quantity) : undefined,
+        max_quantity: itemsFilters.max_quantity ? Number(itemsFilters.max_quantity) : undefined,
+        attributes_search: itemsFilters.attributes_search || undefined,
+      });
+      
+      setStockItems(res.items);
+      setTotalItems(res.total);
+      setPage(pageToFetch);
+    } catch (err) {
+      console.error('Stok kalemleri yüklenemedi:', err);
+    } finally {
+      setItemsLoading(false);
+    }
+  }, [itemsFilters]);
+
+  // Load items on filter change (reset to page 1)
+  useEffect(() => {
+    if (activeTab === 'items') {
+      fetchItems(1);
+    }
+  }, [itemsFilters, activeTab, fetchItems]);
+
 
   // --- Data States ---
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -77,13 +127,19 @@ export function StockPage() {
   const [editingMaterialGrade, setEditingMaterialGrade] = useState<MaterialGrade | null>(null);
 
   // --- Form States (Operations) ---
-  const [newItem, setNewItem] = useState({
+  type NewItemState = {
+    category_id: string;
+    location_id: string;
+    lot_id: string;
+    quantity: string;
+    attributes: Record<string, any>;
+  };
+  const [newItem, setNewItem] = useState<NewItemState>({
     category_id: '',
     location_id: '',
     lot_id: '',
     quantity: '',
-    attrDiameter: '',
-    attrLength: ''
+    attributes: {}
   });
 
   const [newLot, setNewLot] = useState({
@@ -107,7 +163,13 @@ export function StockPage() {
   const [quickError, setQuickError] = useState('');
 
   // --- Form States (Master Data) ---
-  const [categoryForm, setCategoryForm] = useState({ name: '', base_uom: 'Adet', is_cuttable: false });
+  type CategoryFormState = {
+    name: string;
+    base_uom: string;
+    is_cuttable: boolean;
+    attributes_schema: AttributeDefinition[];
+  };
+  const [categoryForm, setCategoryForm] = useState<CategoryFormState>({ name: '', base_uom: 'Adet', is_cuttable: false, attributes_schema: [] });
   const [locationForm, setLocationForm] = useState({ name: '', location_type: 'WAREHOUSE', description: '' });
   const [materialGradeForm, setMaterialGradeForm] = useState({ name: '' });
   const [compositionList, setCompositionList] = useState<{ element: string; percentage: number | '' }[]>([
@@ -119,9 +181,9 @@ export function StockPage() {
     try {
       setLoading(true);
       const [
-        itemsData, lotsData, transData, suppData, locData, catData, gradeData
+        lotsData, transData, suppData, locData, catData, gradeData
       ] = await Promise.all([
-        getStockItems(),
+        
         getLots(),
         getStockTransactions(),
         getSuppliers({ active: true }),
@@ -129,7 +191,7 @@ export function StockPage() {
         getItemCategories(),
         getMaterialGrades()
       ]);
-      setStockItems(itemsData);
+      
       setLots(lotsData);
       setTransactions(transData);
       setSuppliers(suppData);
@@ -144,16 +206,23 @@ export function StockPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    loadData(); fetchItems(1);
   }, [loadData]);
 
   // --- Operations Handlers ---
   const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const attributes: Record<string, any> = {};
-      if (newItem.attrDiameter) attributes.diameter_mm = Number(newItem.attrDiameter);
-      if (newItem.attrLength) attributes.length_mm = Number(newItem.attrLength);
+      const attributes = { ...newItem.attributes };
+      // Convert number strings to actual numbers where appropriate (e.g. based on schema)
+      const category = categories.find(c => c.id === Number(newItem.category_id));
+      if (category && category.attributes_schema) {
+        for (const attrDef of category.attributes_schema) {
+          if (attrDef.type === 'number' && attributes[attrDef.name]) {
+            attributes[attrDef.name] = Number(attributes[attrDef.name]);
+          }
+        }
+      }
 
       await createStockItem({
         item_type: 'RAW_MATERIAL',
@@ -166,10 +235,10 @@ export function StockPage() {
 
       setNewItem({
         category_id: '', location_id: '', lot_id: '', quantity: '',
-        attrDiameter: '', attrLength: ''
+        attributes: {}
       });
       setShowItemForm(false);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error) {
       console.error('Stok kalemi oluşturulamadı:', error);
       alert('Stok kalemi oluşturulurken bir hata oluştu.');
@@ -193,7 +262,7 @@ export function StockPage() {
       });
       setLotCertificateFiles([]);
       setShowLotForm(false);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error) {
       console.error('Lot oluşturulamadı:', error);
       alert('Lot oluşturulurken bir hata oluştu.');
@@ -211,7 +280,7 @@ export function StockPage() {
       });
       setCutData({ parent_id: 0, cut_quantity: '', cut_length: '', notes: '' });
       setShowCutModal(false);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error: any) {
       console.error('Kesim hatası:', error);
       alert(error?.response?.data?.detail || 'Kesim işlemi sırasında hata oluştu.');
@@ -254,7 +323,7 @@ export function StockPage() {
         await createItemCategory(categoryForm);
       }
       setShowCategoryModal(false);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Kaydetme başarısız.');
     }
@@ -264,7 +333,7 @@ export function StockPage() {
     if (!confirm('Silmek istediğinize emin misiniz?')) return;
     try {
       await deleteItemCategory(id);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Silme işlemi başarısız (büyük ihtimalle kullanılıyor).');
     }
@@ -273,10 +342,10 @@ export function StockPage() {
   const openCategoryModal = (cat?: ItemCategory) => {
     if (cat) {
       setEditingCategory(cat);
-      setCategoryForm({ name: cat.name, base_uom: cat.base_uom, is_cuttable: cat.is_cuttable });
+      setCategoryForm({ name: cat.name, base_uom: cat.base_uom, is_cuttable: cat.is_cuttable, attributes_schema: cat.attributes_schema || [] });
     } else {
       setEditingCategory(null);
-      setCategoryForm({ name: '', base_uom: 'Adet', is_cuttable: false });
+      setCategoryForm({ name: '', base_uom: 'Adet', is_cuttable: false, attributes_schema: [] });
     }
     setShowCategoryModal(true);
   };
@@ -290,7 +359,7 @@ export function StockPage() {
         await createLocation(locationForm);
       }
       setShowLocationModal(false);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Kaydetme başarısız.');
     }
@@ -300,7 +369,7 @@ export function StockPage() {
     if (!confirm('Silmek istediğinize emin misiniz?')) return;
     try {
       await deleteLocation(id);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Silme işlemi başarısız (büyük ihtimalle kullanılıyor).');
     }
@@ -339,7 +408,7 @@ export function StockPage() {
         await createMaterialGrade(payload);
       }
       setShowMaterialGradeModal(false);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Kaydetme başarısız.');
     }
@@ -349,7 +418,7 @@ export function StockPage() {
     if (!confirm('Silmek istediğinize emin misiniz?')) return;
     try {
       await deleteMaterialGrade(id);
-      loadData();
+      loadData(); fetchItems(1);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Silme işlemi başarısız (büyük ihtimalle kullanılıyor).');
     }
@@ -442,6 +511,52 @@ export function StockPage() {
                 </button>
               </div>
 
+
+              {/* Filters */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Arama (ID/Lot)</label>
+                    <input type="text" value={itemsFilters.search} onChange={e => setItemsFilters({...itemsFilters, search: e.target.value})} className={inputCls} placeholder="ID veya Lot No..." />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Tip</label>
+                    <select value={itemsFilters.item_type} onChange={e => setItemsFilters({...itemsFilters, item_type: e.target.value})} className={inputCls}>
+                      <option value="">Tümü</option>
+                      <option value="RAW_MATERIAL">Hammadde</option>
+                      <option value="WIP">Yarı Mamul (WIP)</option>
+                      <option value="FINISHED_GOOD">Mamul</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Kategori</label>
+                    <select value={itemsFilters.category_id} onChange={e => setItemsFilters({...itemsFilters, category_id: e.target.value})} className={inputCls}>
+                      <option value="">Tümü</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Lokasyon</label>
+                    <select value={itemsFilters.location_id} onChange={e => setItemsFilters({...itemsFilters, location_id: e.target.value})} className={inputCls}>
+                      <option value="">Tümü</option>
+                      {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Min Miktar</label>
+                    <input type="number" step="any" value={itemsFilters.min_quantity} onChange={e => setItemsFilters({...itemsFilters, min_quantity: e.target.value})} className={inputCls} placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Max Miktar</label>
+                    <input type="number" step="any" value={itemsFilters.max_quantity} onChange={e => setItemsFilters({...itemsFilters, max_quantity: e.target.value})} className={inputCls} placeholder="1000" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Özelliklerde Ara (Örn. çap, 120)</label>
+                    <input type="text" value={itemsFilters.attributes_search} onChange={e => setItemsFilters({...itemsFilters, attributes_search: e.target.value})} className={inputCls} placeholder="Özellik metni..." />
+                  </div>
+                </div>
+              </div>
+
               {showItemForm && (
                 <form onSubmit={handleCreateItem} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Yeni Stok Kalemi Girişi (Hammadde)</h3>
@@ -481,19 +596,38 @@ export function StockPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Miktar *</label>
                       <input type="number" step="0.01" value={newItem.quantity} onChange={e => setNewItem({ ...newItem, quantity: e.target.value })} className={inputCls} required />
                     </div>
-                    <div className="col-span-1 md:col-span-2 border-l-2 border-blue-200 pl-4">
-                      <p className="text-xs font-semibold text-gray-500 mb-2">ÖZELLİKLER (ATTRIBUTES)</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Çap (mm)</label>
-                          <input type="number" value={newItem.attrDiameter} onChange={e => setNewItem({ ...newItem, attrDiameter: e.target.value })} className={inputCls} />
+                    {(() => {
+                      const selectedCategory = categories.find(c => c.id === Number(newItem.category_id));
+                      if (!selectedCategory || !selectedCategory.attributes_schema || selectedCategory.attributes_schema.length === 0) {
+                        return null;
+                      }
+                      
+                      return (
+                        <div className="col-span-1 md:col-span-3 border-l-2 border-blue-200 pl-4 mt-2">
+                          <p className="text-xs font-semibold text-gray-500 mb-2">DİNAMİK ÖZELLİKLER</p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {selectedCategory.attributes_schema.map((attr, idx) => (
+                              <div key={idx}>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  {attr.label} {attr.required && '*'}
+                                </label>
+                                <input
+                                  type={attr.type === 'number' ? 'number' : 'text'}
+                                  step={attr.type === 'number' ? 'any' : undefined}
+                                  value={newItem.attributes[attr.name] || ''}
+                                  onChange={e => setNewItem({ 
+                                    ...newItem, 
+                                    attributes: { ...newItem.attributes, [attr.name]: e.target.value } 
+                                  })}
+                                  className={inputCls}
+                                  required={attr.required}
+                                />
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Uzunluk (mm)</label>
-                          <input type="number" value={newItem.attrLength} onChange={e => setNewItem({ ...newItem, attrLength: e.target.value })} className={inputCls} />
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
                   <div className="flex gap-3 justify-end mt-6">
                     <button type="button" onClick={() => setShowItemForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">İptal</button>
@@ -563,8 +697,32 @@ export function StockPage() {
                       </tr>
                     )}
                   </tbody>
+
                 </table>
+                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                  <span className="text-sm text-gray-700">
+                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                  </span>
+                  <div className="flex space-x-2">
+                    <button 
+                      disabled={page === 1} 
+                      onClick={() => fetchItems(page - 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Önceki
+                    </button>
+                    <button 
+                      disabled={page * LIMIT >= totalItems} 
+                      onClick={() => fetchItems(page + 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+                </div>
               </div>
+
             </div>
           )}
 
@@ -646,8 +804,32 @@ export function StockPage() {
                       <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
                     )}
                   </tbody>
+
                 </table>
+                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                  <span className="text-sm text-gray-700">
+                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                  </span>
+                  <div className="flex space-x-2">
+                    <button 
+                      disabled={page === 1} 
+                      onClick={() => fetchItems(page - 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Önceki
+                    </button>
+                    <button 
+                      disabled={page * LIMIT >= totalItems} 
+                      onClick={() => fetchItems(page + 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+                </div>
               </div>
+
             </div>
           )}
 
@@ -693,8 +875,32 @@ export function StockPage() {
                       <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">İşlem geçmişi bulunamadı.</td></tr>
                     )}
                   </tbody>
+
                 </table>
+                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                  <span className="text-sm text-gray-700">
+                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                  </span>
+                  <div className="flex space-x-2">
+                    <button 
+                      disabled={page === 1} 
+                      onClick={() => fetchItems(page - 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Önceki
+                    </button>
+                    <button 
+                      disabled={page * LIMIT >= totalItems} 
+                      onClick={() => fetchItems(page + 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+                </div>
               </div>
+
             </div>
           )}
 
@@ -745,8 +951,32 @@ export function StockPage() {
                       <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
                     )}
                   </tbody>
+
                 </table>
+                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                  <span className="text-sm text-gray-700">
+                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                  </span>
+                  <div className="flex space-x-2">
+                    <button 
+                      disabled={page === 1} 
+                      onClick={() => fetchItems(page - 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Önceki
+                    </button>
+                    <button 
+                      disabled={page * LIMIT >= totalItems} 
+                      onClick={() => fetchItems(page + 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+                </div>
               </div>
+
             </div>
           )}
 
@@ -799,8 +1029,32 @@ export function StockPage() {
                       <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
                     )}
                   </tbody>
+
                 </table>
+                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                  <span className="text-sm text-gray-700">
+                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                  </span>
+                  <div className="flex space-x-2">
+                    <button 
+                      disabled={page === 1} 
+                      onClick={() => fetchItems(page - 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Önceki
+                    </button>
+                    <button 
+                      disabled={page * LIMIT >= totalItems} 
+                      onClick={() => fetchItems(page + 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+                </div>
               </div>
+
             </div>
           )}
 
@@ -855,8 +1109,32 @@ export function StockPage() {
                       <tr><td colSpan={4} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
                     )}
                   </tbody>
+
                 </table>
+                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                  <span className="text-sm text-gray-700">
+                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                  </span>
+                  <div className="flex space-x-2">
+                    <button 
+                      disabled={page === 1} 
+                      onClick={() => fetchItems(page - 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Önceki
+                    </button>
+                    <button 
+                      disabled={page * LIMIT >= totalItems} 
+                      onClick={() => fetchItems(page + 1)}
+                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+                </div>
               </div>
+
             </div>
           )}
         </div>
@@ -967,6 +1245,88 @@ export function StockPage() {
                 <label htmlFor="is_cuttable" className="text-sm font-medium text-gray-700">
                   Kesilebilir (Testere ile kesilip WIP oluşturulabilir mi?)
                 </label>
+              </div>
+
+              {/* Dynamic Attributes Section */}
+              <div className="mt-6 border-t border-gray-200 pt-4">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Dinamik Özellikler (Opsiyonel)</label>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryForm({
+                      ...categoryForm,
+                      attributes_schema: [...(categoryForm.attributes_schema || []), { name: '', label: '', type: 'number', required: false }]
+                    })}
+                    className="text-blue-600 hover:text-blue-700 text-xs font-medium flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Ekle
+                  </button>
+                </div>
+                {categoryForm.attributes_schema?.map((attr, idx) => (
+                  <div key={idx} className="flex gap-2 items-center mb-2 bg-gray-50 p-2 rounded border border-gray-100">
+                    <input
+                      type="text"
+                      placeholder="Key (örn: cap)"
+                      value={attr.name}
+                      onChange={(e) => {
+                        const newAttrs = [...categoryForm.attributes_schema!];
+                        newAttrs[idx].name = e.target.value;
+                        setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                      }}
+                      className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Etiket (örn: Çap)"
+                      value={attr.label}
+                      onChange={(e) => {
+                        const newAttrs = [...categoryForm.attributes_schema!];
+                        newAttrs[idx].label = e.target.value;
+                        setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                      }}
+                      className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                    <select
+                      value={attr.type}
+                      onChange={(e) => {
+                        const newAttrs = [...categoryForm.attributes_schema!];
+                        newAttrs[idx].type = e.target.value as 'text' | 'number';
+                        setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                      }}
+                      className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="number">Sayı</option>
+                      <option value="text">Metin</option>
+                    </select>
+                    <label className="flex items-center gap-1 text-xs text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={attr.required}
+                        onChange={(e) => {
+                          const newAttrs = [...categoryForm.attributes_schema!];
+                          newAttrs[idx].required = e.target.checked;
+                          setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                        }}
+                        className="rounded border-gray-300 text-blue-600"
+                      />
+                      Zorunlu
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newAttrs = [...categoryForm.attributes_schema!];
+                        newAttrs.splice(idx, 1);
+                        setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                      }}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {categoryForm.attributes_schema?.length === 0 && (
+                  <p className="text-xs text-gray-500 italic text-center py-2">Henüz özellik eklenmedi.</p>
+                )}
               </div>
             </div>
             <div className="flex gap-3 justify-end">

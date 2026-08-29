@@ -14,6 +14,7 @@ import {
   LogOut,
   Truck,
   Scissors,
+  PieChart,
 } from "lucide-react";
 
 import { DiesPage } from "./pages/DiesPage";
@@ -34,6 +35,7 @@ import { SuppliersPage } from "./pages/SuppliersPage";
 
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignUpPage";
+import { ReportsPage } from "./pages/ReportsPage";
 
 import { fetchMe, logoutUser } from "./services/authService";
 import { authToken } from "./lib/api";
@@ -53,6 +55,7 @@ type Page =
   | "operation-types"
   | "component-bom"
   | "suppliers"
+  | "reports"
   | "pre-machining";
 
 type AuthScreen = "login" | "signup";
@@ -165,6 +168,7 @@ function App() {
     },
     { id: "work-orders" as Page, name: "İş Emirleri", icon: Settings },
     { id: "work-centers" as Page, name: "Çalışma Merkezleri", icon: Factory },
+    { id: "reports" as Page, name: "Raporlar", icon: PieChart },
   ];
 
   const masterDataNavigation = [
@@ -223,6 +227,8 @@ function App() {
         return <OperationTypesPage />;
       case "suppliers":
         return <SuppliersPage />;
+      case "reports":
+        return <ReportsPage />;
       default:
         return <DiesPage />;
     }

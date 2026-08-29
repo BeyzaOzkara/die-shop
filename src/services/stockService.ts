@@ -6,7 +6,8 @@ import type {
   StockTransaction, 
   ItemCategory, 
   MaterialGrade, 
-  Location 
+  Location,
+  AttributeDefinition
 } from '../types/database';
 
 // ===========================
@@ -48,6 +49,7 @@ export async function createItemCategory(payload: {
   name: string;
   base_uom: string;
   is_cuttable?: boolean;
+  attributes_schema?: AttributeDefinition[] | null;
 }): Promise<ItemCategory> {
   return api.post<ItemCategory>('/inventory/categories', payload);
 }
@@ -56,6 +58,7 @@ export async function updateItemCategory(id: number, payload: Partial<{
   name: string;
   base_uom: string;
   is_cuttable: boolean;
+  attributes_schema: AttributeDefinition[] | null;
 }>): Promise<ItemCategory> {
   return api.patch<ItemCategory>(`/inventory/categories/${id}`, payload);
 }
@@ -127,6 +130,20 @@ export async function getStockItems(filters?: {
   lot_id?: number;
 }): Promise<StockItem[]> {
   return api.get<StockItem[]>('/inventory/stock-items', filters ?? {});
+}
+
+export async function getStockItemsPaginated(filters?: {
+  skip?: number;
+  limit?: number;
+  search?: string;
+  item_type?: string;
+  category_id?: number;
+  location_id?: number;
+  min_quantity?: number;
+  max_quantity?: number;
+  attributes_search?: string;
+}): Promise<{ items: StockItem[]; total: number }> {
+  return api.get<{ items: StockItem[]; total: number }>('/inventory/stock-items-paginated', filters ?? {});
 }
 
 export async function createStockItem(payload: {
