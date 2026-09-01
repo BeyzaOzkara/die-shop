@@ -353,9 +353,11 @@ export function WorkOrdersPage() {
                   <p className="text-sm text-gray-600 mb-1">{selectedWorkOrder.pre_machining_order_number ? 'Kullanılan Stok' : 'Çelik Ürün'}</p>
                   <p className="font-medium text-gray-900">
                     {selectedWorkOrder.pre_machining_order_number ? (
-                      selectedWorkOrder.stock_item?.attributes?.alloy ? `${selectedWorkOrder.stock_item.attributes.alloy} - Ø${selectedWorkOrder.stock_item.attributes.diameter_mm}mm` : '-'
+                      selectedWorkOrder.stock_item?.lot?.material_profile ? selectedWorkOrder.stock_item.lot.material_profile.display_name :
+                      (selectedWorkOrder.stock_item?.attributes?.alloy ? `${selectedWorkOrder.stock_item.attributes.alloy} - Ø${selectedWorkOrder.stock_item.attributes.diameter_mm}mm` : '-')
                     ) : (
-                      selectedWorkOrder.die_component?.stock_item?.attributes?.alloy ? `${selectedWorkOrder.die_component.stock_item.attributes.alloy} - Ø${selectedWorkOrder.die_component.stock_item.attributes.diameter_mm}mm` : '-'
+                      selectedWorkOrder.die_component?.material_profile ? selectedWorkOrder.die_component.material_profile.display_name :
+                      (selectedWorkOrder.die_component?.stock_item?.attributes?.alloy ? `${selectedWorkOrder.die_component.stock_item.attributes.alloy} - Ø${selectedWorkOrder.die_component.stock_item.attributes.diameter_mm}mm` : '-')
                     )}
                   </p>
                 </div>

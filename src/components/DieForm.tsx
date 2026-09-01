@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import type { ComponentType, StockItem, DieType, Die, FileItem } from '../types/database';
+import type { ComponentType, StockItem, DieType, Die, FileItem, MaterialProfile } from '../types/database';
 import { getActiveDieTypes, getComponentTypesForDieType } from '../services/masterDataService';
-import { getStockItems } from '../services/stockService';
+import { getStockItems, getMaterialProfiles } from '../services/stockService';
 import { calculateTheoreticalConsumption } from '../lib/calculations';
 import { deleteDieFile, uploadDieFiles } from '../services/dieService';
 
 interface SelectedComponent {
   id?: number; // sadece edit modunda var, yeni eklenenlerde yok
   componentTypeId: string;
+  materialProfileId: string;
   stockItemId: string;
   packageLengthMm: number;
   diameterMm: number;
@@ -61,6 +62,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
   const [dieTypes, setDieTypes] = useState<DieType[]>([]);
   const [availableComponents, setAvailableComponents] = useState<ComponentType[]>([]);
   const [steelItems, setSteelItems] = useState<StockItem[]>([]);
+  const [materialProfiles, setMaterialProfiles] = useState<MaterialProfile[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<SelectedComponent[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -78,24 +80,37 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [dieTypesData, steel, wips] = await Promise.all([
+      const [dieTypesData, steel, wips, profiles] = await Promise.all([
         getActiveDieTypes(),
         getStockItems({ item_type: 'RAW_MATERIAL' }),
-        import('../services/preMachiningService').then(m => m.getWipShelf())
+        import('../services/preMachiningService').then(m => m.getWipShelf()),
+        getMaterialProfiles()
       ]);
       setDieTypes(dieTypesData);
       setSteelItems([...steel, ...wips]);
+      setMaterialProfiles(profiles);
 
       // Initialize components from initialData if in edit mode
       if (initialData?.components) {
-        const mappedComponents: SelectedComponent[] = initialData.components.map(c => ({
-          id: mode === 'edit' ? c.id : undefined, // Keep ID only in edit mode
-          componentTypeId: String(c.component_type_id),
-          stockItemId: String(c.stock_item_id),
-          packageLengthMm: c.package_length_mm,
-          diameterMm: Number(c.stock_item?.attributes?.diameter_mm) || 0,
-          theoreticalConsumptionKg: c.theoretical_consumption_kg,
-        }));
+        const mappedComponents: SelectedComponent[] = initialData.components.map(c => {
+          let diameter = 0;
+          if (c.material_profile?.attributes) {
+            const diamKey = Object.keys(c.material_profile.attributes).find(k => k.toLowerCase().includes('cap') || k.toLowerCase().includes('çap') || k.toLowerCase().includes('diameter'));
+            if (diamKey) diameter = Number(c.material_profile.attributes[diamKey]);
+          } else if (c.stock_item?.lot?.material_profile?.attributes) {
+            const diamKey = Object.keys(c.stock_item.lot.material_profile.attributes).find(k => k.toLowerCase().includes('cap') || k.toLowerCase().includes('çap') || k.toLowerCase().includes('diameter'));
+            if (diamKey) diameter = Number(c.stock_item.lot.material_profile.attributes[diamKey]);
+          }
+          return {
+            id: mode === 'edit' ? c.id : undefined, // Keep ID only in edit mode
+            componentTypeId: String(c.component_type_id),
+            materialProfileId: c.material_profile_id ? String(c.material_profile_id) : '',
+            stockItemId: c.stock_item_id ? String(c.stock_item_id) : '',
+            packageLengthMm: c.package_length_mm,
+            diameterMm: diameter,
+            theoreticalConsumptionKg: c.theoretical_consumption_kg,
+          };
+        });
         setSelectedComponents(mappedComponents);
       }
 
@@ -129,6 +144,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
       ...selectedComponents,
       {
         componentTypeId: '',
+        materialProfileId: '',
         stockItemId: '',
         packageLengthMm: 0,
         diameterMm: 0,
@@ -186,16 +202,37 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
     const updated = [...selectedComponents];
     updated[index] = { ...updated[index], [field]: value };
 
-    if (field === 'stockItemId') {
-      const stockItem = steelItems.find((s) => s.id === Number(value));
-      if (stockItem) {
-        updated[index].diameterMm = Number(stockItem.attributes?.diameter_mm || 0);
+    if (field === 'materialProfileId') {
+      const profile = materialProfiles.find((p) => p.id === Number(value));
+      if (profile && profile.attributes) {
+        const diamKey = Object.keys(profile.attributes).find(k => k.toLowerCase().includes('cap') || k.toLowerCase().includes('çap') || k.toLowerCase().includes('diameter'));
+        if (diamKey) {
+          updated[index].diameterMm = Number(profile.attributes[diamKey]);
 
-        if (updated[index].packageLengthMm > 0) {
-          updated[index].theoreticalConsumptionKg = calculateTheoreticalConsumption(
-            updated[index].packageLengthMm,
-            Number(stockItem.attributes?.diameter_mm || 0)
-          );
+          if (updated[index].packageLengthMm > 0) {
+            updated[index].theoreticalConsumptionKg = calculateTheoreticalConsumption(
+              updated[index].packageLengthMm,
+              updated[index].diameterMm
+            );
+          }
+        }
+      }
+    }
+
+    if (field === 'stockItemId' && !updated[index].materialProfileId) {
+      const stockItem = steelItems.find((s) => s.id === Number(value));
+      if (stockItem && stockItem.lot?.material_profile?.attributes) {
+        const profileAttrs = stockItem.lot.material_profile.attributes;
+        const diamKey = Object.keys(profileAttrs).find(k => k.toLowerCase().includes('cap') || k.toLowerCase().includes('çap') || k.toLowerCase().includes('diameter'));
+        if (diamKey) {
+          updated[index].diameterMm = Number(profileAttrs[diamKey]);
+
+          if (updated[index].packageLengthMm > 0) {
+            updated[index].theoreticalConsumptionKg = calculateTheoreticalConsumption(
+              updated[index].packageLengthMm,
+              updated[index].diameterMm
+            );
+          }
         }
       }
     }
@@ -258,7 +295,8 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
           selectedComponents.map(c => ({
             id: c.id,
             componentTypeId: Number(c.componentTypeId),
-            stockItemId: Number(c.stockItemId),
+            materialProfileId: c.materialProfileId ? Number(c.materialProfileId) : null,
+            stockItemId: c.stockItemId ? Number(c.stockItemId) : null,
             packageLengthMm: c.packageLengthMm,
             theoreticalConsumptionKg: c.theoreticalConsumptionKg,
           }))
@@ -300,7 +338,7 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
     pressCode &&
     selectedComponents.length > 0 &&
     selectedComponents.every(
-      (c) => c.componentTypeId && c.stockItemId && c.packageLengthMm > 0
+      (c) => c.componentTypeId && c.packageLengthMm > 0
     );
 
   if (loading) {
@@ -584,7 +622,27 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Çelik Ürün *
+                        Malzeme
+                      </label>
+                      <select
+                        value={component.materialProfileId}
+                        onChange={(e) =>
+                          updateComponent(index, 'materialProfileId', e.target.value)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">Seçiniz (Opsiyonel)</option>
+                        {materialProfiles.map((profile) => (
+                          <option key={profile.id} value={String(profile.id)}>
+                            {profile.display_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fiziksel Stok
                       </label>
                       <select
                         value={component.stockItemId}
@@ -592,14 +650,14 @@ export function DieForm({ mode, initialData, onSubmit, onCancel }: DieFormProps)
                           updateComponent(index, 'stockItemId', e.target.value)
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
                       >
-                        <option value="">Seçiniz</option>
-                        {steelItems.map((item) => (
+                        <option value="">Sonra Atanacak</option>
+                        {steelItems
+                          .filter(item => !component.materialProfileId || String(item.lot?.material_profile_id) === component.materialProfileId)
+                          .map((item) => (
                           <option key={item.id} value={String(item.id)}>
-                            {item.item_type === 'WIP' ? '[WIP - RAF] ' : ''} 
-                            {item.attributes?.alloy || item.category?.name} - Ø{item.attributes?.diameter_mm}mm
-                            {item.item_type === 'WIP' && item.attributes?.length_mm ? ` (L:${item.attributes.length_mm}mm)` : ''}
+                            {item.item_type === 'WIP' ? '[WIP - RAF] ' : ''}
+                            {item.lot?.supplier?.name || 'Tedarikçi Yok'} - {item.quantity} kg
                           </option>
                         ))}
                       </select>

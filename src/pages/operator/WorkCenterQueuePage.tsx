@@ -623,7 +623,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                       <div className="flex justify-between gap-3">
                         <span className="text-gray-600 shrink-0">Kalıp:</span>
                         <span className="font-medium text-gray-900 text-right">
-                          {operation.work_order?.pre_machining_order_number ? (operation.work_order?.stock_item?.attributes?.alloy ? `${operation.work_order.stock_item.attributes.alloy} ${operation.work_order.stock_item.attributes.diameter_mm ? `(Ø${operation.work_order.stock_item.attributes.diameter_mm})` : ''}` : 'Stok (Ön İşleme)') : (operation.work_order?.production_order?.die?.die_number ?? '—')} -{' '}
+                          {operation.work_order?.pre_machining_order_number ? ((operation.work_order?.stock_item?.lot?.material_profile?.display_name || operation.work_order?.stock_item?.attributes?.alloy) ? `${(operation.work_order?.stock_item?.lot?.material_profile?.display_name || operation.work_order.stock_item.attributes.alloy)} ${operation.work_order.stock_item.attributes.diameter_mm ? `(Ø${operation.work_order.stock_item.attributes.diameter_mm})` : ''}` : 'Stok (Ön İşleme)') : (operation.work_order?.production_order?.die?.die_number ?? '—')} -{' '}
                           {operation.work_order?.pre_machining_order_number ? 'Yarımamül' : (operation.work_order?.die_component?.component_type?.name ?? '—')}
                         </span>
                       </div>
@@ -845,7 +845,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                                 <div className="flex justify-between gap-2">
                                   <span>Kalıp</span>
                                   <span className="font-medium text-gray-900 text-right">
-                                    {op.work_order?.pre_machining_order_number ? (op.work_order?.stock_item?.attributes?.alloy ? `${op.work_order.stock_item.attributes.alloy} ${op.work_order.stock_item.attributes.diameter_mm ? `(Ø${op.work_order.stock_item.attributes.diameter_mm})` : ''}` : 'Stok (Ön İşleme)') : (op.work_order?.production_order?.die?.die_number ?? '—')} – {op.work_order?.pre_machining_order_number ? 'Yarımamül' : (op.work_order?.die_component?.component_type?.name ?? '—')}
+                                    {op.work_order?.pre_machining_order_number ? ((op.work_order?.stock_item?.lot?.material_profile?.display_name || op.work_order?.stock_item?.attributes?.alloy) ? `${(op.work_order?.stock_item?.lot?.material_profile?.display_name || op.work_order.stock_item.attributes.alloy)} ${op.work_order.stock_item.attributes.diameter_mm ? `(Ø${op.work_order.stock_item.attributes.diameter_mm})` : ''}` : 'Stok (Ön İşleme)') : (op.work_order?.production_order?.die?.die_number ?? '—')} – {op.work_order?.pre_machining_order_number ? 'Yarımamül' : (op.work_order?.die_component?.component_type?.name ?? '—')}
                                   </span>
                                 </div>
                                 <div className="flex justify-between gap-2">

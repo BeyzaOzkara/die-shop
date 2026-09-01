@@ -5,6 +5,7 @@ import type { Die, DieComponent, ProductionOrder } from '../types/database';
 // CreateDie için component tipi (DieForm’dan gelen shape)
 type CreateDieComponent = {
   componentTypeId: string;
+  materialProfileId?: string;
   stockItemId: string;
   packageLengthMm: number;
   diameterMm: number;
@@ -136,7 +137,8 @@ export async function createDie(params: {
 
         return {
           component_type_id: Number(c.componentTypeId),
-          stock_item_id: Number(c.stockItemId),
+          material_profile_id: c.materialProfileId ? Number(c.materialProfileId) : null,
+          stock_item_id: c.stockItemId ? Number(c.stockItemId) : null,
           package_length_mm: packageLen, // backend int ise Math.round(packageLen) yap
           theoretical_consumption_kg: theoretical,
         };
@@ -282,7 +284,8 @@ export async function replaceDieComponents(
   components: Array<{
     id?: number; // existing component id, if editing
     componentTypeId: number;
-    stockItemId: number;
+    materialProfileId?: number | null;
+    stockItemId: number | null;
     packageLengthMm: number;
     theoreticalConsumptionKg: number;
   }>
@@ -292,6 +295,7 @@ export async function replaceDieComponents(
     components: components.map((c) => ({
       id: c.id,
       component_type_id: c.componentTypeId,
+      material_profile_id: c.materialProfileId ?? null,
       stock_item_id: c.stockItemId,
       package_length_mm: c.packageLengthMm,
       theoretical_consumption_kg: c.theoreticalConsumptionKg,

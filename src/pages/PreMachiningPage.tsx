@@ -248,7 +248,7 @@ export function PreMachiningPage({ onBack }: Props) {
                           [ID:{item.id}] {item.category?.name} - {item.quantity} kg 
                           {item.attributes?.diameter_mm && ` (Ø${item.attributes.diameter_mm})`}
                           {item.attributes?.length_mm && ` (L:${item.attributes.length_mm})`}
-                          {item.attributes?.alloy && ` (${item.attributes.alloy})`}
+                          {item.lot?.material_profile ? ` (${item.lot.material_profile.display_name})` : (item.attributes?.alloy && ` (${item.attributes.alloy})`)}
                         </option>
                       ))}
                     </select>
@@ -424,7 +424,7 @@ export function PreMachiningPage({ onBack }: Props) {
                     <Layers className="w-6 h-6 text-gray-600" />
                   </div>
                   <h3 className="font-bold text-gray-900 mb-1 text-lg">
-                    {item.attributes?.alloy ? `${item.attributes.alloy}` : 'Stok'}: #{item.id}
+                    {item.lot?.material_profile?.display_name || item.attributes?.alloy || 'Stok'}: #{item.id}
                     {item.attributes?.diameter_mm && ` (Ø${item.attributes.diameter_mm})`}
                   </h3>
                   <p className="text-gray-500 text-sm mb-4 line-clamp-1">{item.category?.name}</p>

@@ -172,7 +172,11 @@ export function DieDetail({ dieId, onClose, onDeleted, onCopyRequested }: DieDet
                                 <span className="font-medium text-gray-700">
                                     {comp.component_type?.name ?? `Tip ${comp.component_type_id}`}
                                 </span>
-                                {comp.stock_item?.attributes?.alloy} (Ø{comp.stock_item?.attributes?.diameter_mm})
+                                {comp.material_profile ? (
+                                    <span>{comp.material_profile.display_name} (L: {comp.package_length_mm}mm)</span>
+                                ) : (
+                                    <span>{comp.stock_item?.attributes?.alloy} (Ø{comp.stock_item?.attributes?.diameter_mm}) (L: {comp.package_length_mm}mm)</span>
+                                )}
                             </div>
                         ))}
                     </div>

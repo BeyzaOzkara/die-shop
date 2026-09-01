@@ -5,7 +5,7 @@ import type {
   Lot, 
   StockTransaction, 
   ItemCategory, 
-  MaterialGrade, 
+  MaterialProfile, 
   Location,
   AttributeDefinition
 } from '../types/database';
@@ -67,26 +67,29 @@ export async function deleteItemCategory(id: number): Promise<void> {
   return api.delete(`/inventory/categories/${id}`);
 }
 
-export async function getMaterialGrades(): Promise<MaterialGrade[]> {
-  return api.get<MaterialGrade[]>('/inventory/material-grades');
+export async function getMaterialProfiles(category_id?: number): Promise<MaterialProfile[]> {
+  const params = category_id ? { category_id } : {};
+  return api.get<MaterialProfile[]>('/inventory/material-profiles', params);
 }
 
-export async function createMaterialGrade(payload: {
-  name: string;
-  composition?: Record<string, number>;
-}): Promise<MaterialGrade> {
-  return api.post<MaterialGrade>('/inventory/material-grades', payload);
+export async function createMaterialProfile(payload: {
+  category_id: number;
+  attributes: Record<string, any>;
+  display_name: string;
+}): Promise<MaterialProfile> {
+  return api.post<MaterialProfile>('/inventory/material-profiles', payload);
 }
 
-export async function updateMaterialGrade(id: number, payload: Partial<{
-  name: string;
-  composition: Record<string, number>;
-}>): Promise<MaterialGrade> {
-  return api.patch<MaterialGrade>(`/inventory/material-grades/${id}`, payload);
+export async function updateMaterialProfile(id: number, payload: Partial<{
+  attributes: Record<string, any>;
+  display_name: string;
+  is_active: boolean;
+}>): Promise<MaterialProfile> {
+  return api.patch<MaterialProfile>(`/inventory/material-profiles/${id}`, payload);
 }
 
-export async function deleteMaterialGrade(id: number): Promise<void> {
-  return api.delete(`/inventory/material-grades/${id}`);
+export async function deleteMaterialProfile(id: number): Promise<void> {
+  return api.delete(`/inventory/material-profiles/${id}`);
 }
 
 // ===========================
@@ -105,7 +108,7 @@ export async function createLot(payload: {
   certificate_number?: string;
   receive_date: string; // YYYY-MM-DD
   supplier_id?: number | null;
-  material_grade_id?: number | null;
+  material_profile_id?: number | null;
   notes?: string;
 }, certificateFiles: File[] = []): Promise<Lot> {
   const formData = new FormData();

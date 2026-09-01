@@ -125,14 +125,18 @@ export interface ItemCategory {
   base_uom: string;
   is_cuttable: boolean;
   attributes_schema?: AttributeDefinition[] | null;
+  tracking_schema?: AttributeDefinition[] | null;
   created_at: string;
 }
 
-export interface MaterialGrade {
+export interface MaterialProfile {
   id: number;
-  name: string;
-  composition?: Record<string, number> | null;
+  category_id: number;
+  attributes: Record<string, any>;
+  display_name: string;
+  is_active: boolean;
   created_at: string;
+  category?: ItemCategory | null;
 }
 
 export interface Location {
@@ -155,12 +159,12 @@ export interface Lot {
   certificate_number?: string | null;
   receive_date: string;
   supplier_id?: number | null;
-  material_grade_id?: number | null;
+  material_profile_id?: number | null;
   notes?: string | null;
   created_at: string;
 
   supplier?: Supplier | null;
-  material_grade?: MaterialGrade | null;
+  material_profile?: MaterialProfile | null;
   files?: FileItem[];
 }
 
@@ -267,11 +271,13 @@ export interface DieComponent {
   id: number;
   die_id: number;
   component_type_id: number;
+  material_profile_id?: number | null;
   stock_item_id?: number | null;
   package_length_mm: number;
   theoretical_consumption_kg: number;
   created_at: string;
   component_type?: ComponentType;
+  material_profile?: MaterialProfile;
   stock_item?: StockItem;
 }
 
