@@ -256,3 +256,19 @@ export async function getLastOperatorsForOperations(
     `/operator-panel/operations/last-operators?operation_ids=${ids}`
   );
 }
+
+export interface AllOperatorInfo {
+  operator_id: number;
+  operator_name: string;
+  first_action_type: string;
+  first_performed_at: string;
+}
+export async function getAllOperatorsForOperations(
+  operationIds: number[]
+): Promise<Record<string, AllOperatorInfo[]>> {
+  if (operationIds.length === 0) return {};
+  const ids = operationIds.join(',');
+  return await api.get<Record<string, AllOperatorInfo[]>>(
+    `/operator-panel/operations/all-operators?operation_ids=${ids}`
+  );
+}

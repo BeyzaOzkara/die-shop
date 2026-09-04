@@ -8,8 +8,8 @@ import {
   completeWorkOrder,
 } from '../services/orderService';
 import {
-  getLastOperatorsForOperations,
-  type LastOperatorInfo,
+  getAllOperatorsForOperations,
+  type AllOperatorInfo,
 } from '../services/operatorService';
 import { getAvailableLots } from '../services/stockService';
 import type { WorkOrder, WorkOrderOperation, Lot } from '../types/database';
@@ -54,7 +54,9 @@ export function WorkOrdersPage() {
   // const [statusFilter, setStatusFilter] = useState<WorkOrder['status'] | ''>('');
   // const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   // const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const [lastOperatorMap, setLastOperatorMap] = useState<Record<string, LastOperatorInfo>>({});
+  // const [lastOperatorMap, setLastOperatorMap] = useState<Record<string, LastOperatorInfo>>({});
+  
+  const [allOperatorsMap, setAllOperatorsMap] = useState<Record<string, AllOperatorInfo[]>>({});
   // ── Fetch a single page ───────────────────────────────────────
   const fetchPage = useCallback(
     async (currentSkip: number, replace: boolean) => {
@@ -142,13 +144,16 @@ export function WorkOrdersPage() {
       if (data.length > 0) {
         const ids = data.map((op: WorkOrderOperation) => op.id);
         try {
-          const map = await getLastOperatorsForOperations(ids);
-          setLastOperatorMap(map);
+          // const map = await getLastOperatorsForOperations(ids);
+          // setLastOperatorMap(map);
+          const map = await getAllOperatorsForOperations(ids);
+          setAllOperatorsMap(map);
         } catch {
           // non-critical — just leave map empty
         }
       } else {
-        setLastOperatorMap({});
+        // setLastOperatorMap({});
+        setAllOperatorsMap({});
       }
     } catch (error) {
       console.error('Operasyonlar yüklenemedi:', error);
@@ -525,9 +530,17 @@ export function WorkOrdersPage() {
                               <p className="text-sm text-gray-600">
                                 {op.work_center?.name}
                               </p>
-                              {lastOperatorMap[String(op.id)] && (
+                              {/* {lastOperatorMap[String(op.id)] && ( */}
+                                {allOperatorsMap[String(op.id)] && allOperatorsMap[String(op.id)].length > 0 && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                <span className="font-medium">Operatörler: </span>
+                                {allOperatorsMap[String(op.id)].map(o => o.operator_name).join(', ')}
+                              </div>
+                            )}
+                            {op.status === 'Completed' && op.completed_at && (
                                 <p className="text-xs text-gray-500 mt-1">
-                                  Son Operatör: {lastOperatorMap[String(op.id)].operator_name}
+                                  Tamamlanma: {new Date(op.completed_at).toLocaleString('tr-TR')}
+                                  {/* Son Operatör: {lastOperatorMap[String(op.id)].operator_name} */}
                                 </p>
                               )}
                             </div>
