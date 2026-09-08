@@ -124,6 +124,23 @@ export async function createLot(payload: {
 }
 
 // ===========================
+// SUMMARY (NEW)
+// ===========================
+
+export interface MaterialProfileSummary {
+  material_profile_id: number;
+  display_name: string;
+  attributes: Record<string, any>;
+  category_name: string;
+  base_uom: string;
+  total_quantity: number;
+}
+
+export async function getMaterialProfileSummaries(): Promise<MaterialProfileSummary[]> {
+  return api.get<MaterialProfileSummary[]>('/inventory/summary/material-profiles');
+}
+
+// ===========================
 // STOCK ITEMS
 // ===========================
 

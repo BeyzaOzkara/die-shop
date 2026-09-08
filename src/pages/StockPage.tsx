@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Package, Plus, Trash2, Scissors, Database, ArrowRightLeft, Settings, Pencil, Box, MapPin, Beaker, Lock } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Package, Plus, Trash2, Scissors, Database, ArrowRightLeft, Settings, Pencil, Box, MapPin, Beaker, Lock, BarChart2 } from 'lucide-react';
 import {
   getStockItemsPaginated,
   createStockItem,
@@ -18,7 +18,9 @@ import {
   getMaterialProfiles,
   createMaterialProfile,
   updateMaterialProfile,
-  deleteMaterialProfile
+  deleteMaterialProfile,
+  getMaterialProfileSummaries,
+  type MaterialProfileSummary
 } from '../services/stockService';
 import {
   getSuppliers,
@@ -46,7 +48,7 @@ const EMPTY_SUPPLIER_FORM: SupplierCreatePayload = {
   notes: '',
 };
 
-type Tab = 'items' | 'lots' | 'transactions' | 'categories' | 'locations' | 'material_grades';
+type Tab = 'items' | 'lots' | 'transactions' | 'categories' | 'locations' | 'material_grades' | 'summary';
 
 export function StockPage() {
   const [activeTab, setActiveTab] = useState<Tab>('items');
@@ -109,6 +111,62 @@ export function StockPage() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [categories, setCategories] = useState<ItemCategory[]>([]);
   const [materialProfiles, setMaterialProfiles] = useState<MaterialProfile[]>([]);
+  const [summaries, setSummaries] = useState<MaterialProfileSummary[]>([]);
+
+  // --- Lots Filtering ---
+  const [lotsFilters, setLotsFilters] = useState({
+    search: '',
+    supplier_id: '',
+    material_profile_id: '',
+  });
+
+  const filteredLots = useMemo(() => {
+    return lots.filter(lot => {
+      if (lotsFilters.search) {
+        const searchLower = lotsFilters.search.toLowerCase();
+        const matchesLot = lot.lot_number?.toLowerCase().includes(searchLower);
+        const matchesCert = lot.certificate_number?.toLowerCase().includes(searchLower);
+        if (!matchesLot && !matchesCert) {
+          return false;
+        }
+      }
+      if (lotsFilters.supplier_id && lot.supplier?.id !== Number(lotsFilters.supplier_id)) {
+        return false;
+      }
+      if (lotsFilters.material_profile_id && lot.material_profile?.id !== Number(lotsFilters.material_profile_id)) {
+        return false;
+      }
+      return true;
+    });
+  }, [lots, lotsFilters]);
+
+  // --- Summary Filtering ---
+  const [summaryFilters, setSummaryFilters] = useState({
+    alloy: '',
+    diameter: '',
+    min_quantity: '',
+    max_quantity: ''
+  });
+
+  const filteredSummaries = useMemo(() => {
+    return summaries.filter(s => {
+      if (summaryFilters.alloy) {
+        const alloyVal = String(s.attributes?.alloy || '').toLowerCase();
+        if (!alloyVal.includes(summaryFilters.alloy.toLowerCase())) return false;
+      }
+      if (summaryFilters.diameter) {
+        const diamVal = String(s.attributes?.diameter || '').toLowerCase();
+        if (!diamVal.includes(summaryFilters.diameter.toLowerCase())) return false;
+      }
+      if (summaryFilters.min_quantity) {
+        if (s.total_quantity < Number(summaryFilters.min_quantity)) return false;
+      }
+      if (summaryFilters.max_quantity) {
+        if (s.total_quantity > Number(summaryFilters.max_quantity)) return false;
+      }
+      return true;
+    });
+  }, [summaries, summaryFilters]);
 
   // --- UI States (Operations) ---
   const [showItemForm, setShowItemForm] = useState(false);
@@ -183,13 +241,14 @@ export function StockPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [lotsData, transData, suppData, catData, profileData, locData] = await Promise.all([
+      const [lotsData, transData, suppData, catData, profileData, locData, summaryData] = await Promise.all([
         getLots(),
         getStockTransactions(),
         getSuppliers({ active: true }),
         getItemCategories(),
         getMaterialProfiles(),
-        getLocations()
+        getLocations(),
+        getMaterialProfileSummaries()
       ]);
       
       setLots(lotsData);
@@ -198,6 +257,7 @@ export function StockPage() {
       setCategories(catData);
       setMaterialProfiles(profileData);
       setLocations(locData);
+      setSummaries(summaryData);
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
     } finally {
@@ -495,6 +555,9 @@ export function StockPage() {
               </button>
               <button onClick={() => setActiveTab('lots')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'lots' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
                 <Database className="w-4 h-4" /> Lotlar
+              </button>
+              <button onClick={() => setActiveTab('summary')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'summary' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <BarChart2 className="w-4 h-4" /> Malzeme Özeti
               </button>
               <button onClick={() => setActiveTab('transactions')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'transactions' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
                 <ArrowRightLeft className="w-4 h-4" /> İşlem Geçmişi
@@ -875,6 +938,30 @@ export function StockPage() {
                 </form>
               )}
 
+              {/* Lot Filters */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Arama (Lot/Sertifika No)</label>
+                    <input type="text" value={lotsFilters.search} onChange={e => setLotsFilters({...lotsFilters, search: e.target.value})} className={inputCls} placeholder="Lot veya sertifika no..." />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Tedarikçi</label>
+                    <select value={lotsFilters.supplier_id} onChange={e => setLotsFilters({...lotsFilters, supplier_id: e.target.value})} className={inputCls}>
+                      <option value="">Tümü</option>
+                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Malzeme Tanımı</label>
+                    <select value={lotsFilters.material_profile_id} onChange={e => setLotsFilters({...lotsFilters, material_profile_id: e.target.value})} className={inputCls}>
+                      <option value="">Tümü</option>
+                      {materialProfiles.map(m => <option key={m.id} value={m.id}>{m.display_name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -887,7 +974,7 @@ export function StockPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {lots.map((lot) => (
+                    {filteredLots.map((lot) => (
                       <tr key={lot.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 font-medium text-gray-900">{lot.lot_number}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{lot.certificate_number || '-'}</td>
@@ -896,7 +983,7 @@ export function StockPage() {
                         <td className="px-6 py-4 text-sm text-gray-600">{new Date(lot.receive_date).toLocaleDateString('tr-TR')}</td>
                       </tr>
                     ))}
-                    {lots.length === 0 && (
+                    {filteredLots.length === 0 && (
                       <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
                     )}
                   </tbody>
@@ -926,6 +1013,64 @@ export function StockPage() {
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* SUMMARY TAB */}
+          {activeTab === 'summary' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Malzeme Özeti</h2>
+                <p className="text-gray-600 mt-1">Hammadde (RAW_MATERIAL) statüsündeki stok kalemlerinin malzeme profiline göre toplam miktarları.</p>
+              </div>
+
+              {/* Filters */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Alaşım</label>
+                    <input type="text" value={summaryFilters.alloy} onChange={e => setSummaryFilters({...summaryFilters, alloy: e.target.value})} className={inputCls} placeholder="Örn: 2344" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Çap (mm)</label>
+                    <input type="text" value={summaryFilters.diameter} onChange={e => setSummaryFilters({...summaryFilters, diameter: e.target.value})} className={inputCls} placeholder="Örn: 140" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Min Miktar</label>
+                    <input type="number" step="any" value={summaryFilters.min_quantity} onChange={e => setSummaryFilters({...summaryFilters, min_quantity: e.target.value})} className={inputCls} placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Max Miktar</label>
+                    <input type="number" step="any" value={summaryFilters.max_quantity} onChange={e => setSummaryFilters({...summaryFilters, max_quantity: e.target.value})} className={inputCls} placeholder="1000" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Malzeme Tanımı</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Toplam Miktar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredSummaries.map((summary) => (
+                      <tr key={summary.material_profile_id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 font-medium text-gray-900">{summary.display_name}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{summary.category_name}</td>
+                        <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
+                          {summary.total_quantity.toFixed(2)} {summary.base_uom}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredSummaries.length === 0 && (
+                      <tr><td colSpan={3} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
