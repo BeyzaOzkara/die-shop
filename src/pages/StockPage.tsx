@@ -84,7 +84,7 @@ export function StockPage() {
         max_quantity: itemsFilters.max_quantity ? Number(itemsFilters.max_quantity) : undefined,
         attributes_search: itemsFilters.attributes_search || undefined,
       });
-      
+
       setStockItems(res.items);
       setTotalItems(res.total);
       setPage(pageToFetch);
@@ -250,7 +250,7 @@ export function StockPage() {
         getLocations(),
         getMaterialProfileSummaries()
       ]);
-      
+
       setLots(lotsData);
       setTransactions(transData);
       setSuppliers(suppData);
@@ -273,19 +273,19 @@ export function StockPage() {
   useEffect(() => {
     const cat = categories.find(c => c.id === Number(newItem.category_id));
     if (cat?.is_cuttable) {
-      const weightKey = cat.tracking_schema?.find(a => 
-        a.name.toLowerCase().includes('agirlik') || 
-        a.name.toLowerCase().includes('ağırlık') || 
+      const weightKey = cat.tracking_schema?.find(a =>
+        a.name.toLowerCase().includes('agirlik') ||
+        a.name.toLowerCase().includes('ağırlık') ||
         a.name.toLowerCase().includes('weight') ||
         a.label.toLowerCase().includes('agirlik') ||
         a.label.toLowerCase().includes('ağırlık')
       )?.name;
-      
+
       if (weightKey && newItem.attributes[weightKey]) {
-         const calculated = (Number(newItem.attributes[weightKey]) * (Number(newItem.block_count) || 1)).toString();
-         if (calculated !== newItem.quantity) {
-           setNewItem(prev => ({ ...prev, quantity: calculated }));
-         }
+        const calculated = (Number(newItem.attributes[weightKey]) * (Number(newItem.block_count) || 1)).toString();
+        if (calculated !== newItem.quantity) {
+          setNewItem(prev => ({ ...prev, quantity: calculated }));
+        }
       }
     }
   }, [newItem.attributes, newItem.block_count, newItem.category_id, categories]);
@@ -306,7 +306,7 @@ export function StockPage() {
       }
 
       const count = (category?.is_cuttable && Number(newItem.block_count) > 0) ? Number(newItem.block_count) : 1;
-      
+
       const payload = {
         item_type: 'RAW_MATERIAL' as const,
         category_id: Number(newItem.category_id),
@@ -477,7 +477,7 @@ export function StockPage() {
 
   const handleSaveMaterialProfile = async () => {
     if (!materialProfileForm.display_name || !materialProfileForm.category_id) return alert('Lütfen zorunlu alanları doldurun.');
-    
+
     try {
       const payload = {
         category_id: Number(materialProfileForm.category_id),
@@ -510,10 +510,10 @@ export function StockPage() {
   const openMaterialProfileModal = (mp?: MaterialProfile) => {
     if (mp) {
       setEditingMaterialProfile(mp);
-      setMaterialProfileForm({ 
-          category_id: String(mp.category_id), 
-          display_name: mp.display_name, 
-          attributes: mp.attributes || {} 
+      setMaterialProfileForm({
+        category_id: String(mp.category_id),
+        display_name: mp.display_name,
+        attributes: mp.attributes || {}
       });
     } else {
       setEditingMaterialProfile(null);
@@ -599,11 +599,11 @@ export function StockPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Arama (ID/Lot)</label>
-                    <input type="text" value={itemsFilters.search} onChange={e => setItemsFilters({...itemsFilters, search: e.target.value})} className={inputCls} placeholder="ID veya Lot No..." />
+                    <input type="text" value={itemsFilters.search} onChange={e => setItemsFilters({ ...itemsFilters, search: e.target.value })} className={inputCls} placeholder="ID veya Lot No..." />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Tip</label>
-                    <select value={itemsFilters.item_type} onChange={e => setItemsFilters({...itemsFilters, item_type: e.target.value})} className={inputCls}>
+                    <select value={itemsFilters.item_type} onChange={e => setItemsFilters({ ...itemsFilters, item_type: e.target.value })} className={inputCls}>
                       <option value="">Tümü</option>
                       <option value="RAW_MATERIAL">Hammadde</option>
                       <option value="WIP">Yarı Mamul (WIP)</option>
@@ -612,29 +612,29 @@ export function StockPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Kategori</label>
-                    <select value={itemsFilters.category_id} onChange={e => setItemsFilters({...itemsFilters, category_id: e.target.value})} className={inputCls}>
+                    <select value={itemsFilters.category_id} onChange={e => setItemsFilters({ ...itemsFilters, category_id: e.target.value })} className={inputCls}>
                       <option value="">Tümü</option>
                       {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Lokasyon</label>
-                    <select value={itemsFilters.location_id} onChange={e => setItemsFilters({...itemsFilters, location_id: e.target.value})} className={inputCls}>
+                    <select value={itemsFilters.location_id} onChange={e => setItemsFilters({ ...itemsFilters, location_id: e.target.value })} className={inputCls}>
                       <option value="">Tümü</option>
                       {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Min Miktar</label>
-                    <input type="number" step="any" value={itemsFilters.min_quantity} onChange={e => setItemsFilters({...itemsFilters, min_quantity: e.target.value})} className={inputCls} placeholder="0" />
+                    <input type="number" step="any" value={itemsFilters.min_quantity} onChange={e => setItemsFilters({ ...itemsFilters, min_quantity: e.target.value })} className={inputCls} placeholder="0" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Max Miktar</label>
-                    <input type="number" step="any" value={itemsFilters.max_quantity} onChange={e => setItemsFilters({...itemsFilters, max_quantity: e.target.value})} className={inputCls} placeholder="1000" />
+                    <input type="number" step="any" value={itemsFilters.max_quantity} onChange={e => setItemsFilters({ ...itemsFilters, max_quantity: e.target.value })} className={inputCls} placeholder="1000" />
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Özelliklerde Ara (Örn. çap, 120)</label>
-                    <input type="text" value={itemsFilters.attributes_search} onChange={e => setItemsFilters({...itemsFilters, attributes_search: e.target.value})} className={inputCls} placeholder="Özellik metni..." />
+                    <input type="text" value={itemsFilters.attributes_search} onChange={e => setItemsFilters({ ...itemsFilters, attributes_search: e.target.value })} className={inputCls} placeholder="Özellik metni..." />
                   </div>
                 </div>
               </div>
@@ -652,9 +652,9 @@ export function StockPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Lot</label>
-                      <select 
-                        value={newItem.lot_id} 
-                        onChange={e => setNewItem({ ...newItem, lot_id: e.target.value })} 
+                      <select
+                        value={newItem.lot_id}
+                        onChange={e => setNewItem({ ...newItem, lot_id: e.target.value })}
                         className={inputCls}
                         disabled={!newItem.category_id}
                       >
@@ -688,7 +688,7 @@ export function StockPage() {
                     {(() => {
                       const selectedCategory = categories.find(c => c.id === Number(newItem.category_id));
                       const isCuttable = selectedCategory?.is_cuttable;
-                      
+
                       return (
                         <>
                           {isCuttable && (
@@ -701,25 +701,25 @@ export function StockPage() {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Toplam Miktar {selectedCategory ? `(${selectedCategory.base_uom})` : ''} *
                             </label>
-                            <input 
-                              type="number" 
-                              step="0.01" 
-                              value={newItem.quantity} 
-                              onChange={e => !isCuttable && setNewItem({ ...newItem, quantity: e.target.value })} 
-                              className={`${inputCls} ${isCuttable ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''}`} 
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={newItem.quantity}
+                              onChange={e => !isCuttable && setNewItem({ ...newItem, quantity: e.target.value })}
+                              className={`${inputCls} ${isCuttable ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''}`}
                               readOnly={isCuttable}
-                              required 
+                              required
                             />
                           </div>
                         </>
                       );
                     })()}
-                    
+
                     {/* Display Lot Material Profile Attributes Read-Only */}
                     {(() => {
                       const selectedLot = lots.find(l => l.id === Number(newItem.lot_id));
                       if (!selectedLot || !selectedLot.material_profile) return null;
-                      
+
                       return (
                         <div className="col-span-1 md:col-span-3 bg-blue-50 border border-blue-100 rounded-lg p-3 mt-2 flex flex-wrap gap-x-6 gap-y-2">
                           <p className="text-sm font-semibold text-blue-900 w-full mb-1">Malzeme Tanımı: {selectedLot.material_profile.display_name}</p>
@@ -737,7 +737,7 @@ export function StockPage() {
                       if (!selectedCategory || !selectedCategory.tracking_schema || selectedCategory.tracking_schema.length === 0) {
                         return null;
                       }
-                      
+
                       return (
                         <div className="col-span-1 md:col-span-3 border-l-2 border-green-200 pl-4 mt-2">
                           <p className="text-xs font-semibold text-gray-500 mb-2">FİZİKSEL TAKİP ÖZELLİKLERİ</p>
@@ -751,9 +751,9 @@ export function StockPage() {
                                   type={attr.type === 'number' ? 'number' : 'text'}
                                   step={attr.type === 'number' ? 'any' : undefined}
                                   value={newItem.attributes[attr.name] || ''}
-                                  onChange={e => setNewItem({ 
-                                    ...newItem, 
-                                    attributes: { ...newItem.attributes, [attr.name]: e.target.value } 
+                                  onChange={e => setNewItem({
+                                    ...newItem,
+                                    attributes: { ...newItem.attributes, [attr.name]: e.target.value }
                                   })}
                                   className={inputCls}
                                   required={attr.required}
@@ -788,13 +788,12 @@ export function StockPage() {
                     {stockItems.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            item.item_type === 'RAW_MATERIAL' ? 'bg-purple-100 text-purple-800' :
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${item.item_type === 'RAW_MATERIAL' ? 'bg-purple-100 text-purple-800' :
                             item.item_type === 'WIP' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
-                          }`}>
-                            {item.item_type === 'RAW_MATERIAL' ? 'Hammadde' : 
-                             item.item_type === 'WIP' ? 'Yarı Mamul' : 
-                             item.item_type === 'FINISHED_PRODUCT' ? 'Mamul' : item.item_type}
+                            }`}>
+                            {item.item_type === 'RAW_MATERIAL' ? 'Hammadde' :
+                              item.item_type === 'WIP' ? 'Yarı Mamul' :
+                                item.item_type === 'FINISHED_PRODUCT' ? 'Mamul' : item.item_type}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -804,13 +803,13 @@ export function StockPage() {
                           <div className="text-xs text-gray-500 mt-1">
                             Tedarikçi: {item.lot?.supplier?.name || '-'} | Lot: {item.lot?.lot_number || '-'}
                           </div>
-                          
+
                           {/* WIP Context (Kalıp / Bileşen) */}
                           {item.item_type === 'WIP' && (item.attributes?.['Kalıp'] || item.attributes?.['Sipariş Türü']) && (
                             <div className="mt-2 flex flex-col gap-1">
                               {item.attributes['Kalıp'] && (
                                 <span className="inline-flex items-center text-xs font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 w-max">
-                                  Kalıp: {item.attributes['Kalıp'] as string} 
+                                  Kalıp: {item.attributes['Kalıp'] as string}
                                   {item.attributes['Bileşen'] ? ` / ${item.attributes['Bileşen']}` : ''}
                                 </span>
                               )}
@@ -864,15 +863,15 @@ export function StockPage() {
                     Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
                   </span>
                   <div className="flex space-x-2">
-                    <button 
-                      disabled={page === 1} 
+                    <button
+                      disabled={page === 1}
                       onClick={() => fetchItems(page - 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
                       Önceki
                     </button>
-                    <button 
-                      disabled={page * LIMIT >= totalItems} 
+                    <button
+                      disabled={page * LIMIT >= totalItems}
                       onClick={() => fetchItems(page + 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
@@ -943,18 +942,18 @@ export function StockPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Arama (Lot/Sertifika No)</label>
-                    <input type="text" value={lotsFilters.search} onChange={e => setLotsFilters({...lotsFilters, search: e.target.value})} className={inputCls} placeholder="Lot veya sertifika no..." />
+                    <input type="text" value={lotsFilters.search} onChange={e => setLotsFilters({ ...lotsFilters, search: e.target.value })} className={inputCls} placeholder="Lot veya sertifika no..." />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Tedarikçi</label>
-                    <select value={lotsFilters.supplier_id} onChange={e => setLotsFilters({...lotsFilters, supplier_id: e.target.value})} className={inputCls}>
+                    <select value={lotsFilters.supplier_id} onChange={e => setLotsFilters({ ...lotsFilters, supplier_id: e.target.value })} className={inputCls}>
                       <option value="">Tümü</option>
                       {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Malzeme Tanımı</label>
-                    <select value={lotsFilters.material_profile_id} onChange={e => setLotsFilters({...lotsFilters, material_profile_id: e.target.value})} className={inputCls}>
+                    <select value={lotsFilters.material_profile_id} onChange={e => setLotsFilters({ ...lotsFilters, material_profile_id: e.target.value })} className={inputCls}>
                       <option value="">Tümü</option>
                       {materialProfiles.map(m => <option key={m.id} value={m.id}>{m.display_name}</option>)}
                     </select>
@@ -970,6 +969,7 @@ export function StockPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sertifika</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tedarikçi</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Malzeme Tanımı</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Mevcut Miktar</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giriş Tarihi</th>
                     </tr>
                   </thead>
@@ -980,11 +980,14 @@ export function StockPage() {
                         <td className="px-6 py-4 text-sm text-gray-600">{lot.certificate_number || '-'}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{lot.supplier?.name || '-'}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{lot.material_profile?.display_name || '-'}</td>
+                        <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
+                          {Number(lot.total_quantity || 0).toFixed(2)} {lot.material_profile?.category?.base_uom || ''}
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{new Date(lot.receive_date).toLocaleDateString('tr-TR')}</td>
                       </tr>
                     ))}
                     {filteredLots.length === 0 && (
-                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                      <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
                     )}
                   </tbody>
 
@@ -995,15 +998,15 @@ export function StockPage() {
                     Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
                   </span>
                   <div className="flex space-x-2">
-                    <button 
-                      disabled={page === 1} 
+                    <button
+                      disabled={page === 1}
                       onClick={() => fetchItems(page - 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
                       Önceki
                     </button>
-                    <button 
-                      disabled={page * LIMIT >= totalItems} 
+                    <button
+                      disabled={page * LIMIT >= totalItems}
                       onClick={() => fetchItems(page + 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
@@ -1019,9 +1022,17 @@ export function StockPage() {
           {/* SUMMARY TAB */}
           {activeTab === 'summary' && (
             <div>
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Malzeme Özeti</h2>
-                <p className="text-gray-600 mt-1">Hammadde (RAW_MATERIAL) statüsündeki stok kalemlerinin malzeme profiline göre toplam miktarları.</p>
+              <div className="mb-6 flex justify-between items-start">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Malzeme Özeti</h2>
+                  <p className="text-gray-600 mt-1">Hammadde statüsündeki stok kalemlerinin malzeme profiline göre toplam miktarları.</p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-right min-w-[150px]">
+                  <div className="text-sm text-blue-600 font-medium mb-1">Toplam (kg)</div>
+                  <div className="text-2xl font-bold text-blue-900">
+                    {filteredSummaries.reduce((sum, item) => item.base_uom?.toLowerCase() === 'kg' ? sum + item.total_quantity : sum, 0).toFixed(2)}
+                  </div>
+                </div>
               </div>
 
               {/* Filters */}
@@ -1029,19 +1040,19 @@ export function StockPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Alaşım</label>
-                    <input type="text" value={summaryFilters.alloy} onChange={e => setSummaryFilters({...summaryFilters, alloy: e.target.value})} className={inputCls} placeholder="Örn: 2344" />
+                    <input type="text" value={summaryFilters.alloy} onChange={e => setSummaryFilters({ ...summaryFilters, alloy: e.target.value })} className={inputCls} placeholder="Örn: 2344" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Çap (mm)</label>
-                    <input type="text" value={summaryFilters.diameter} onChange={e => setSummaryFilters({...summaryFilters, diameter: e.target.value})} className={inputCls} placeholder="Örn: 140" />
+                    <input type="text" value={summaryFilters.diameter} onChange={e => setSummaryFilters({ ...summaryFilters, diameter: e.target.value })} className={inputCls} placeholder="Örn: 140" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Min Miktar</label>
-                    <input type="number" step="any" value={summaryFilters.min_quantity} onChange={e => setSummaryFilters({...summaryFilters, min_quantity: e.target.value})} className={inputCls} placeholder="0" />
+                    <input type="number" step="any" value={summaryFilters.min_quantity} onChange={e => setSummaryFilters({ ...summaryFilters, min_quantity: e.target.value })} className={inputCls} placeholder="0" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Max Miktar</label>
-                    <input type="number" step="any" value={summaryFilters.max_quantity} onChange={e => setSummaryFilters({...summaryFilters, max_quantity: e.target.value})} className={inputCls} placeholder="1000" />
+                    <input type="number" step="any" value={summaryFilters.max_quantity} onChange={e => setSummaryFilters({ ...summaryFilters, max_quantity: e.target.value })} className={inputCls} placeholder="1000" />
                   </div>
                 </div>
               </div>
@@ -1124,15 +1135,15 @@ export function StockPage() {
                     Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
                   </span>
                   <div className="flex space-x-2">
-                    <button 
-                      disabled={page === 1} 
+                    <button
+                      disabled={page === 1}
                       onClick={() => fetchItems(page - 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
                       Önceki
                     </button>
-                    <button 
-                      disabled={page * LIMIT >= totalItems} 
+                    <button
+                      disabled={page * LIMIT >= totalItems}
                       onClick={() => fetchItems(page + 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
@@ -1200,15 +1211,15 @@ export function StockPage() {
                     Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
                   </span>
                   <div className="flex space-x-2">
-                    <button 
-                      disabled={page === 1} 
+                    <button
+                      disabled={page === 1}
                       onClick={() => fetchItems(page - 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
                       Önceki
                     </button>
-                    <button 
-                      disabled={page * LIMIT >= totalItems} 
+                    <button
+                      disabled={page * LIMIT >= totalItems}
                       onClick={() => fetchItems(page + 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
@@ -1278,15 +1289,15 @@ export function StockPage() {
                     Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
                   </span>
                   <div className="flex space-x-2">
-                    <button 
-                      disabled={page === 1} 
+                    <button
+                      disabled={page === 1}
                       onClick={() => fetchItems(page - 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
                       Önceki
                     </button>
-                    <button 
-                      disabled={page * LIMIT >= totalItems} 
+                    <button
+                      disabled={page * LIMIT >= totalItems}
                       onClick={() => fetchItems(page + 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
@@ -1360,15 +1371,15 @@ export function StockPage() {
                     Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
                   </span>
                   <div className="flex space-x-2">
-                    <button 
-                      disabled={page === 1} 
+                    <button
+                      disabled={page === 1}
                       onClick={() => fetchItems(page - 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
                       Önceki
                     </button>
-                    <button 
-                      disabled={page * LIMIT >= totalItems} 
+                    <button
+                      disabled={page * LIMIT >= totalItems}
                       onClick={() => fetchItems(page + 1)}
                       className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
                     >
@@ -1733,7 +1744,7 @@ export function StockPage() {
                   ))}
                 </select>
               </div>
-              
+
               {materialProfileForm.category_id && (() => {
                 const selectedCat = categories.find(c => String(c.id) === materialProfileForm.category_id);
                 return selectedCat?.attributes_schema?.map((attr) => (
@@ -1743,25 +1754,25 @@ export function StockPage() {
                       type={attr.type === 'number' ? 'number' : 'text'}
                       value={materialProfileForm.attributes[attr.name] || ''}
                       onChange={(e) => {
-                          const newAttrs = { ...materialProfileForm.attributes, [attr.name]: e.target.value };
-                          
-                          // Compute display name
-                          const parts = selectedCat.attributes_schema!
-                            .filter(s => newAttrs[s.name])
-                            .map(s => {
-                              let val = newAttrs[s.name];
-                              if (s.name.toLowerCase().includes('cap') || s.name.toLowerCase().includes('çap') || s.label.toLowerCase().includes('çap')) {
-                                return `${val} Ø`;
-                              }
-                              return val;
-                            });
-                          const newDisplayName = parts.join(' - ');
+                        const newAttrs = { ...materialProfileForm.attributes, [attr.name]: e.target.value };
 
-                          setMaterialProfileForm({ 
-                            ...materialProfileForm, 
-                            attributes: newAttrs,
-                            display_name: newDisplayName
+                        // Compute display name
+                        const parts = selectedCat.attributes_schema!
+                          .filter(s => newAttrs[s.name])
+                          .map(s => {
+                            let val = newAttrs[s.name];
+                            if (s.name.toLowerCase().includes('cap') || s.name.toLowerCase().includes('çap') || s.label.toLowerCase().includes('çap')) {
+                              return `${val} Ø`;
+                            }
+                            return val;
                           });
+                        const newDisplayName = parts.join(' - ');
+
+                        setMaterialProfileForm({
+                          ...materialProfileForm,
+                          attributes: newAttrs,
+                          display_name: newDisplayName
+                        });
                       }}
                       className={inputCls}
                       required={attr.required}
@@ -1780,7 +1791,7 @@ export function StockPage() {
                 />
               </div>
             </div>
-            
+
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
               <button onClick={() => setShowMaterialProfileModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
               <button onClick={handleSaveMaterialProfile} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>

@@ -166,6 +166,7 @@ export interface Lot {
   supplier?: Supplier | null;
   material_profile?: MaterialProfile | null;
   files?: FileItem[];
+  total_quantity?: number;
 }
 
 export interface StockItem {
