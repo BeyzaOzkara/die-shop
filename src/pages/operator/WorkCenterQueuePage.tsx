@@ -108,7 +108,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
 
   const isSawOperation = (op: WorkOrderOperation) => {
     if (op.operation_type?.is_cutting === true) return true;
-    
+
     // fallback (bazı eski kayıtlarda is_cutting olmayabilir)
     const name = (op.operation_type?.name ?? op.operation_name ?? '').toLowerCase();
     return name.includes('testere') || name.includes('kesim');
@@ -628,51 +628,51 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                         </span>
                       </div>
                       {/* Kalıp Çapı ve Figür Sayısı */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-600 shrink-0">Kalıp Çapı:</span>
-                        <span className="font-medium text-gray-900">
-                          {operation.work_order?.pre_machining_order_number ? `Ø${operation.work_order?.stock_item?.attributes?.diameter_mm || '—'} mm` : (operation.work_order?.production_order?.die?.die_diameter_mm ? `${operation.work_order.production_order.die.die_diameter_mm} mm` : '—')}
-                        </span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-600 shrink-0">Kalıp Çapı:</span>
+                          <span className="font-medium text-gray-900">
+                            {operation.work_order?.pre_machining_order_number ? `Ø${operation.work_order?.stock_item?.attributes?.diameter_mm || '—'} mm` : (operation.work_order?.production_order?.die?.die_diameter_mm ? `${operation.work_order.production_order.die.die_diameter_mm} mm` : '—')}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-600 shrink-0">Kalıp Figür Sayısı:</span>
+                          <span className="font-medium text-gray-900">
+                            {operation.work_order?.pre_machining_order_number ? '—' : (operation.work_order?.production_order?.die?.figure_count ?? '—')}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-600 shrink-0">Kalıp Figür Sayısı:</span>
-                        <span className="font-medium text-gray-900">
-                          {operation.work_order?.pre_machining_order_number ? '—' : (operation.work_order?.production_order?.die?.figure_count ?? '—')}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-600">{operation.work_order?.pre_machining_order_number ? "Planlanan Boy (mm):" : "Paket Boyu:"}</span>
-                        <span className="font-medium text-gray-900">{operation.work_order?.pre_machining_order_number ? (operation.work_order?.planned_cut_length_mm ?? '—') : (operation.work_order?.die_component?.package_length_mm ?? '—')} mm</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-600">{operation.work_order?.pre_machining_order_number ? "Planlanan Ağırlık:" : "Toplam Paket Boyu:"}</span>
-                        <span className="font-medium text-gray-900">{operation.work_order?.pre_machining_order_number ? (operation.work_order?.planned_cut_weight_kg ? `${operation.work_order.planned_cut_weight_kg} kg` : '—') : (operation.work_order?.production_order?.die?.total_package_length_mm ?? '—')} mm</span>
-                      </div>
-                    </div>
-                    
-                    {/* Müşteri ve Oluşturulma */}
-                    <div className="grid grid-cols-2 gap-4 pt-1 border-t border-gray-100">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-600 shrink-0">Müşteri:</span>
-                        <span className="font-medium text-gray-900 text-right">
-                          {operation.work_order?.pre_machining_order_number ? 'İç Üretim' : (operation.work_order?.production_order?.die?.customer_name ?? '—')}
-                        </span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-600">{operation.work_order?.pre_machining_order_number ? "Planlanan Boy (mm):" : "Paket Boyu:"}</span>
+                          <span className="font-medium text-gray-900">{operation.work_order?.pre_machining_order_number ? (operation.work_order?.planned_cut_length_mm ?? '—') : (operation.work_order?.die_component?.package_length_mm ?? '—')} mm</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-600">{operation.work_order?.pre_machining_order_number ? "Planlanan Ağırlık:" : "Toplam Paket Boyu:"}</span>
+                          <span className="font-medium text-gray-900">{operation.work_order?.pre_machining_order_number ? (operation.work_order?.planned_cut_weight_kg ? `${operation.work_order.planned_cut_weight_kg} kg` : '—') : (operation.work_order?.production_order?.die?.total_package_length_mm ?? '—')} mm</span>
+                        </div>
                       </div>
 
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-600 shrink-0">Oluşturulma:</span>
-                        <span className="font-medium text-gray-900">
-                          {operation.work_order?.created_at
-                            ? new Date(operation.work_order.created_at).toLocaleDateString()
-                            : '—'}
-                        </span>
+                      {/* Müşteri ve Oluşturulma */}
+                      <div className="grid grid-cols-2 gap-4 pt-1 border-t border-gray-100">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-600 shrink-0">Müşteri:</span>
+                          <span className="font-medium text-gray-900 text-right">
+                            {operation.work_order?.pre_machining_order_number ? 'İç Üretim' : (operation.work_order?.production_order?.die?.customer_name ?? '—')}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-600 shrink-0">Oluşturulma:</span>
+                          <span className="font-medium text-gray-900">
+                            {operation.work_order?.created_at
+                              ? new Date(operation.work_order.created_at).toLocaleDateString()
+                              : '—'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
                       {(operation.work_order?.production_order?.die?.files?.length ?? 0) > 0 && (
                         <div className="mt-3 pt-3 border-t border-gray-100">
@@ -1101,7 +1101,7 @@ export function WorkCenterQueuePage({ operator, onLogout }: WorkCenterQueuePageP
                       //   #{lot.certificate_number} · {lot.supplier} · Kalan {lot.remaining_kg} kg
                       // </option>
                       <option key={lot.id} value={lot.id}>
-                        Ø{(lot as any).diameter_mm ?? '—'} · {lot.supplier} · Kalan {lot.remaining_kg} kg
+                        {lot.material_profile?.display_name ? `${lot.material_profile.display_name} · ` : ''}{lot.supplier as any} · Kalan {lot.remaining_kg} kg
                       </option>
 
                     ))

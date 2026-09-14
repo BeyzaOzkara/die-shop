@@ -168,6 +168,24 @@ export function StockPage() {
     });
   }, [summaries, summaryFilters]);
 
+  // --- Transactions Filtering ---
+  const [transactionsFilters, setTransactionsFilters] = useState({
+    type: '',
+    stockId: ''
+  });
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      if (transactionsFilters.type && t.transaction_type !== transactionsFilters.type) {
+        return false;
+      }
+      if (transactionsFilters.stockId && !String(t.stock_item_id).includes(transactionsFilters.stockId)) {
+        return false;
+      }
+      return true;
+    });
+  }, [transactions, transactionsFilters]);
+
   // --- UI States (Operations) ---
   const [showItemForm, setShowItemForm] = useState(false);
   const [showLotForm, setShowLotForm] = useState(false);
@@ -549,7 +567,7 @@ export function StockPage() {
             <div className="p-4 border-b border-gray-200 bg-gray-50">
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Operasyonlar</h2>
             </div>
-            <nav className="flex flex-col p-2 space-y-1">
+            <nav className="flex flex-col p-2 ">
               <button onClick={() => setActiveTab('items')} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'items' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
                 <Package className="w-4 h-4" /> Stok Kalemleri
               </button>
@@ -1087,719 +1105,727 @@ export function StockPage() {
 
           {/* TRANSACTIONS TAB */}
           {activeTab === 'transactions' && (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900">İşlem Geçmişi</h2>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarih</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tür</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stok ID</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Değişim</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sonraki Miktar</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notlar / Meta</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {transactions.map((t) => (
-                      <tr key={t.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-600">{new Date(t.timestamp).toLocaleString('tr-TR')}</td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                            {t.transaction_type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-blue-600">#{t.stock_item_id}</td>
-                        <td className={`px-6 py-4 text-sm font-bold text-right ${Number(t.quantity_change) > 0 ? 'text-green-600' : Number(t.quantity_change) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                          {Number(t.quantity_change) > 0 ? '+' : ''}{Number(t.quantity_change).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-right text-gray-900">{Number(t.quantity_after).toFixed(2)}</td>
-                        <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
-                          {t.notes && <div className="text-gray-900 mb-1">{t.notes}</div>}
-                          {t.meta_data && JSON.stringify(t.meta_data)}
-                        </td>
-                      </tr>
-                    ))}
-                    {transactions.length === 0 && (
-                      <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">İşlem geçmişi bulunamadı.</td></tr>
-                    )}
-                  </tbody>
-
-                </table>
-                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
-                <div className="flex justify-between items-center p-4 border-t border-gray-200">
-                  <span className="text-sm text-gray-700">
-                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
-                  </span>
-                  <div className="flex space-x-2">
-                    <button
-                      disabled={page === 1}
-                      onClick={() => fetchItems(page - 1)}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
-                    >
-                      Önceki
-                    </button>
-                    <button
-                      disabled={page * LIMIT >= totalItems}
-                      onClick={() => fetchItems(page + 1)}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
-                    >
-                      Sonraki
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* CATEGORIES TAB */}
-          {activeTab === 'categories' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Kategoriler</h2>
-                <button onClick={() => openCategoryModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                  <Plus className="w-4 h-4" /> Yeni Kategori
-                </button>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                      <th className="px-6 py-3 font-medium">ID</th>
-                      <th className="px-6 py-3 font-medium">İsim</th>
-                      <th className="px-6 py-3 font-medium">Birim</th>
-                      <th className="px-6 py-3 font-medium">Kesilebilir mi?</th>
-                      <th className="px-6 py-3 font-medium text-right">İşlemler</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {categories.map((cat) => (
-                      <tr key={cat.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-500">{cat.id}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{cat.name}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{cat.base_uom}</td>
-                        <td className="px-6 py-4 text-sm">
-                          {cat.is_cuttable ? (
-                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Evet</span>
-                          ) : (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">Hayır</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-right space-x-2">
-                          <button onClick={() => openCategoryModal(cat)} className="text-blue-600 hover:text-blue-800 p-1">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-600 hover:text-red-800 p-1">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {categories.length === 0 && (
-                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
-                    )}
-                  </tbody>
-
-                </table>
-                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
-                <div className="flex justify-between items-center p-4 border-t border-gray-200">
-                  <span className="text-sm text-gray-700">
-                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
-                  </span>
-                  <div className="flex space-x-2">
-                    <button
-                      disabled={page === 1}
-                      onClick={() => fetchItems(page - 1)}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
-                    >
-                      Önceki
-                    </button>
-                    <button
-                      disabled={page * LIMIT >= totalItems}
-                      onClick={() => fetchItems(page + 1)}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
-                    >
-                      Sonraki
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* LOCATIONS TAB */}
-          {activeTab === 'locations' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Lokasyonlar</h2>
-                <button onClick={() => openLocationModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                  <Plus className="w-4 h-4" /> Yeni Lokasyon
-                </button>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                      <th className="px-6 py-3 font-medium">ID</th>
-                      <th className="px-6 py-3 font-medium">İsim</th>
-                      <th className="px-6 py-3 font-medium">Tip</th>
-                      <th className="px-6 py-3 font-medium">Açıklama</th>
-                      <th className="px-6 py-3 font-medium text-right">İşlemler</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {locations.map((loc) => (
-                      <tr key={loc.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-500">{loc.id}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{loc.name}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{loc.location_type}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{loc.description || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-right space-x-2">
-                          {loc.location_type === 'WORK_CENTER' ? (
-                            <div className="inline-flex items-center text-xs text-gray-400 gap-1 bg-gray-50 px-2 py-1 rounded">
-                              <Lock className="w-3 h-3" /> Oto-Yönetim
-                            </div>
-                          ) : (
-                            <>
-                              <button onClick={() => openLocationModal(loc)} className="text-blue-600 hover:text-blue-800 p-1">
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => handleDeleteLocation(loc.id)} className="text-red-600 hover:text-red-800 p-1">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {locations.length === 0 && (
-                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
-                    )}
-                  </tbody>
-
-                </table>
-                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
-                <div className="flex justify-between items-center p-4 border-t border-gray-200">
-                  <span className="text-sm text-gray-700">
-                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
-                  </span>
-                  <div className="flex space-x-2">
-                    <button
-                      disabled={page === 1}
-                      onClick={() => fetchItems(page - 1)}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
-                    >
-                      Önceki
-                    </button>
-                    <button
-                      disabled={page * LIMIT >= totalItems}
-                      onClick={() => fetchItems(page + 1)}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
-                    >
-                      Sonraki
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* MATERIAL GRADES TAB */}
-          {activeTab === 'material_grades' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Malzeme Tanımları</h2>
-                <button onClick={() => openMaterialProfileModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                  <Plus className="w-4 h-4" /> Yeni Tanım
-                </button>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                      <th className="px-6 py-3 font-medium">ID</th>
-                      <th className="px-6 py-3 font-medium">Tanım İsmi</th>
-                      <th className="px-6 py-3 font-medium">Kategori</th>
-                      <th className="px-6 py-3 font-medium">Özellikler</th>
-                      <th className="px-6 py-3 font-medium text-right">İşlemler</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {materialProfiles.map((mp) => (
-                      <tr key={mp.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-500">{mp.id}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{mp.display_name}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{mp.category?.name || mp.category_id}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {mp.attributes && Object.keys(mp.attributes).length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {Object.entries(mp.attributes).map(([k, v]) => (
-                                <span key={k} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs border border-gray-200">
-                                  {k}: {String(v)}
-                                </span>
+            <div className="space-y-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                          <h2 className="text-xl font-bold text-gray-900">İşlem Geçmişi</h2>
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <select
+                              className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full sm:w-48"
+                              value={transactionsFilters.type}
+                              onChange={(e) => setTransactionsFilters(f => ({ ...f, type: e.target.value }))}
+                            >
+                              <option value="">Tüm İşlemler</option>
+                              <option value="RECEIVE">RECEIVE</option>
+                              <option value="PARTIAL_CONSUME">PARTIAL_CONSUME</option>
+                              <option value="WIP_CREATED">WIP_CREATED</option>
+                              <option value="LOCATION_MOVE">LOCATION_MOVE</option>
+                              <option value="SCRAP">SCRAP</option>
+                              <option value="ADJUSTMENT">ADJUSTMENT</option>
+                              <option value="BATCH_PROCESS">BATCH_PROCESS</option>
+                              <option value="FINISHED">FINISHED</option>
+                            </select>
+                            <input
+                              type="text"
+                              placeholder="Stok ID Ara..."
+                              className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full sm:w-48"
+                              value={transactionsFilters.stockId}
+                              onChange={(e) => setTransactionsFilters(f => ({ ...f, stockId: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarih</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tür</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stok Detayı</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Değişim</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sonraki Miktar</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notlar / Meta</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {filteredTransactions.map((t) => (
+                                <tr key={t.id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 text-sm text-gray-600">{new Date(t.timestamp).toLocaleString('tr-TR')}</td>
+                                  <td className="px-6 py-4">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                                      {t.transaction_type}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-sm font-medium text-blue-600">
+                                    <div>#{t.stock_item_id} - {t.stock_item?.item_type || ''}</div>
+                                    {t.stock_item?.category && (
+                                      <div className="text-xs text-gray-500 font-normal">
+                                        {t.stock_item.category.name}
+                                        {t.stock_item?.lot?.lot_number ? ` (Lot: ${t.stock_item.lot.lot_number})` : ''}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className={`px-6 py-4 text-sm font-bold text-right ${Number(t.quantity_change) > 0 ? 'text-green-600' : Number(t.quantity_change) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                                    {Number(t.quantity_change) > 0 ? '+' : ''}{Number(t.quantity_change).toFixed(2)}
+                                  </td>
+                                  <td className="px-6 py-4 text-sm font-medium text-right text-gray-900">{Number(t.quantity_after).toFixed(2)}</td>
+                                  <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
+                                    {t.notes && <div className="text-gray-900 mb-1">{t.notes}</div>}
+                                    {t.meta_data && JSON.stringify(t.meta_data)}
+                                  </td>
+                                </tr>
                               ))}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 italic">Belirtilmemiş</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-right space-x-2">
-                          <button onClick={() => openMaterialProfileModal(mp)} className="text-blue-600 hover:text-blue-800 p-1">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDeleteMaterialProfile(mp.id)} className="text-red-600 hover:text-red-800 p-1">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {materialProfiles.length === 0 && (
-                      <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                              {filteredTransactions.length === 0 && (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">İşlem geçmişi bulunamadı.</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     )}
-                  </tbody>
 
-                </table>
-                {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
-                <div className="flex justify-between items-center p-4 border-t border-gray-200">
-                  <span className="text-sm text-gray-700">
-                    Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
-                  </span>
-                  <div className="flex space-x-2">
-                    <button
-                      disabled={page === 1}
-                      onClick={() => fetchItems(page - 1)}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
-                    >
-                      Önceki
-                    </button>
-                    <button
-                      disabled={page * LIMIT >= totalItems}
-                      onClick={() => fetchItems(page + 1)}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
-                    >
-                      Sonraki
-                    </button>
+                    {/* CATEGORIES TAB */}
+                    {activeTab === 'categories' && (
+                      <div>
+                        <div className="flex justify-between items-center mb-6">
+                          <h2 className="text-xl font-bold text-gray-900">Kategoriler</h2>
+                          <button onClick={() => openCategoryModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                            <Plus className="w-4 h-4" /> Yeni Kategori
+                          </button>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                                <th className="px-6 py-3 font-medium">ID</th>
+                                <th className="px-6 py-3 font-medium">İsim</th>
+                                <th className="px-6 py-3 font-medium">Birim</th>
+                                <th className="px-6 py-3 font-medium">Kesilebilir mi?</th>
+                                <th className="px-6 py-3 font-medium text-right">İşlemler</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {categories.map((cat) => (
+                                <tr key={cat.id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 text-sm text-gray-500">{cat.id}</td>
+                                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{cat.name}</td>
+                                  <td className="px-6 py-4 text-sm text-gray-600">{cat.base_uom}</td>
+                                  <td className="px-6 py-4 text-sm">
+                                    {cat.is_cuttable ? (
+                                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Evet</span>
+                                    ) : (
+                                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">Hayır</span>
+                                    )}
+                                  </td>
+                                  <td className="px-6 py-4 text-sm text-right space-x-2">
+                                    <button onClick={() => openCategoryModal(cat)} className="text-blue-600 hover:text-blue-800 p-1">
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-600 hover:text-red-800 p-1">
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                              {categories.length === 0 && (
+                                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                              )}
+                            </tbody>
+
+                          </table>
+                          {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                          <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                            <span className="text-sm text-gray-700">
+                              Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                            </span>
+                            <div className="flex space-x-2">
+                              <button
+                                disabled={page === 1}
+                                onClick={() => fetchItems(page - 1)}
+                                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                              >
+                                Önceki
+                              </button>
+                              <button
+                                disabled={page * LIMIT >= totalItems}
+                                onClick={() => fetchItems(page + 1)}
+                                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                              >
+                                Sonraki
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* LOCATIONS TAB */}
+                    {activeTab === 'locations' && (
+                      <div>
+                        <div className="flex justify-between items-center mb-6">
+                          <h2 className="text-xl font-bold text-gray-900">Lokasyonlar</h2>
+                          <button onClick={() => openLocationModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                            <Plus className="w-4 h-4" /> Yeni Lokasyon
+                          </button>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                                <th className="px-6 py-3 font-medium">ID</th>
+                                <th className="px-6 py-3 font-medium">İsim</th>
+                                <th className="px-6 py-3 font-medium">Tip</th>
+                                <th className="px-6 py-3 font-medium">Açıklama</th>
+                                <th className="px-6 py-3 font-medium text-right">İşlemler</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {locations.map((loc) => (
+                                <tr key={loc.id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 text-sm text-gray-500">{loc.id}</td>
+                                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{loc.name}</td>
+                                  <td className="px-6 py-4 text-sm text-gray-600">{loc.location_type}</td>
+                                  <td className="px-6 py-4 text-sm text-gray-500">{loc.description || '-'}</td>
+                                  <td className="px-6 py-4 text-sm text-right space-x-2">
+                                    {loc.location_type === 'WORK_CENTER' ? (
+                                      <div className="inline-flex items-center text-xs text-gray-400 gap-1 bg-gray-50 px-2 py-1 rounded">
+                                        <Lock className="w-3 h-3" /> Oto-Yönetim
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <button onClick={() => openLocationModal(loc)} className="text-blue-600 hover:text-blue-800 p-1">
+                                          <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => handleDeleteLocation(loc.id)} className="text-red-600 hover:text-red-800 p-1">
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                              {locations.length === 0 && (
+                                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                              )}
+                            </tbody>
+
+                          </table>
+                          {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                          <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                            <span className="text-sm text-gray-700">
+                              Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                            </span>
+                            <div className="flex space-x-2">
+                              <button
+                                disabled={page === 1}
+                                onClick={() => fetchItems(page - 1)}
+                                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                              >
+                                Önceki
+                              </button>
+                              <button
+                                disabled={page * LIMIT >= totalItems}
+                                onClick={() => fetchItems(page + 1)}
+                                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                              >
+                                Sonraki
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* MATERIAL GRADES TAB */}
+                    {activeTab === 'material_grades' && (
+                      <div>
+                        <div className="flex justify-between items-center mb-6">
+                          <h2 className="text-xl font-bold text-gray-900">Malzeme Tanımları</h2>
+                          <button onClick={() => openMaterialProfileModal()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                            <Plus className="w-4 h-4" /> Yeni Tanım
+                          </button>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                                <th className="px-6 py-3 font-medium">ID</th>
+                                <th className="px-6 py-3 font-medium">Tanım İsmi</th>
+                                <th className="px-6 py-3 font-medium">Kategori</th>
+                                <th className="px-6 py-3 font-medium">Özellikler</th>
+                                <th className="px-6 py-3 font-medium text-right">İşlemler</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {materialProfiles.map((mp) => (
+                                <tr key={mp.id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 text-sm text-gray-500">{mp.id}</td>
+                                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{mp.display_name}</td>
+                                  <td className="px-6 py-4 text-sm text-gray-600">{mp.category?.name || mp.category_id}</td>
+                                  <td className="px-6 py-4 text-sm text-gray-600">
+                                    {mp.attributes && Object.keys(mp.attributes).length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {Object.entries(mp.attributes).map(([k, v]) => (
+                                          <span key={k} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs border border-gray-200">
+                                            {k}: {String(v)}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400 italic">Belirtilmemiş</span>
+                                    )}
+                                  </td>
+                                  <td className="px-6 py-4 text-sm text-right space-x-2">
+                                    <button onClick={() => openMaterialProfileModal(mp)} className="text-blue-600 hover:text-blue-800 p-1">
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => handleDeleteMaterialProfile(mp.id)} className="text-red-600 hover:text-red-800 p-1">
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                              {materialProfiles.length === 0 && (
+                                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">Kayıt bulunamadı.</td></tr>
+                              )}
+                            </tbody>
+
+                          </table>
+                          {itemsLoading && <div className="p-4 text-center text-sm text-gray-500">Yükleniyor...</div>}
+                          <div className="flex justify-between items-center p-4 border-t border-gray-200">
+                            <span className="text-sm text-gray-700">
+                              Toplam {totalItems} kayıttan {(page - 1) * LIMIT + 1} - {Math.min(page * LIMIT, totalItems)} arası gösteriliyor
+                            </span>
+                            <div className="flex space-x-2">
+                              <button
+                                disabled={page === 1}
+                                onClick={() => fetchItems(page - 1)}
+                                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                              >
+                                Önceki
+                              </button>
+                              <button
+                                disabled={page * LIMIT >= totalItems}
+                                onClick={() => fetchItems(page + 1)}
+                                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 text-sm"
+                              >
+                                Sonraki
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+              </div>
+
+              {/* ========================================================= */}
+              {/* MODALS */}
+              {/* ========================================================= */}
+
+              {/* CUT STEEL MODAL */}
+              {showCutModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                  <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Scissors className="w-5 h-5 text-indigo-600" />
+                      Çelik Kesme (WIP Oluştur)
+                    </h2>
+                    <form onSubmit={handleCutSteel}>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Kaynak Stok ID</label>
+                          <input type="text" value={`#${cutData.parent_id}`} disabled className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-500" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Kesilecek Miktar (kg) *</label>
+                          <input type="number" step="0.01" value={cutData.cut_quantity} onChange={e => setCutData({ ...cutData, cut_quantity: e.target.value })} className={inputCls} required />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Kesilen Parça Uzunluğu (mm) *</label>
+                          <input type="number" step="0.1" value={cutData.cut_length} onChange={e => setCutData({ ...cutData, cut_length: e.target.value })} className={inputCls} required />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Notlar</label>
+                          <input type="text" value={cutData.notes} onChange={e => setCutData({ ...cutData, notes: e.target.value })} className={inputCls} />
+                        </div>
+                      </div>
+                      <div className="mt-6 flex justify-end gap-3">
+                        <button type="button" onClick={() => setShowCutModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">İptal</button>
+                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">Kesimi Tamamla</button>
+                      </div>
+                    </form>
                   </div>
                 </div>
-              </div>
+              )}
 
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ========================================================= */}
-      {/* MODALS */}
-      {/* ========================================================= */}
-
-      {/* CUT STEEL MODAL */}
-      {showCutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <Scissors className="w-5 h-5 text-indigo-600" />
-              Çelik Kesme (WIP Oluştur)
-            </h2>
-            <form onSubmit={handleCutSteel}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kaynak Stok ID</label>
-                  <input type="text" value={`#${cutData.parent_id}`} disabled className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kesilecek Miktar (kg) *</label>
-                  <input type="number" step="0.01" value={cutData.cut_quantity} onChange={e => setCutData({ ...cutData, cut_quantity: e.target.value })} className={inputCls} required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kesilen Parça Uzunluğu (mm) *</label>
-                  <input type="number" step="0.1" value={cutData.cut_length} onChange={e => setCutData({ ...cutData, cut_length: e.target.value })} className={inputCls} required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notlar</label>
-                  <input type="text" value={cutData.notes} onChange={e => setCutData({ ...cutData, notes: e.target.value })} className={inputCls} />
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowCutModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">İptal</button>
-                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">Kesimi Tamamla</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* QUICK SUPPLIER MODAL */}
-      {showQuickSupplier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Hızlı Tedarikçi Ekle</h2>
-            {quickError && <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg">{quickError}</div>}
-            <form onSubmit={handleQuickSupplierCreate}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Firma Adı *</label>
-                  <input type="text" value={quickForm.name} onChange={e => setQuickForm({ ...quickForm, name: e.target.value })} className={inputCls} required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Vergi No</label>
-                  <input type="text" value={quickForm.tax_no} onChange={e => setQuickForm({ ...quickForm, tax_no: e.target.value })} className={inputCls} />
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowQuickSupplier(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">İptal</button>
-                <button type="submit" disabled={quickSubmitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50">Kaydet</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Category Modal */}
-      {showCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              {editingCategory ? 'Kategori Düzenle' : 'Yeni Kategori'}
-            </h3>
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">İsim *</label>
-                <input
-                  type="text"
-                  value={categoryForm.name}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                  className={inputCls}
-                  placeholder="Örn: Hammadde, Bitmiş Ürün..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Temel Birim (UoM) *</label>
-                <input
-                  type="text"
-                  value={categoryForm.base_uom}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, base_uom: e.target.value })}
-                  className={inputCls}
-                  placeholder="kg, adet, m..."
-                />
-              </div>
-              <div className="flex items-center gap-2 mt-4">
-                <input
-                  type="checkbox"
-                  id="is_cuttable"
-                  checked={categoryForm.is_cuttable}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, is_cuttable: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                />
-                <label htmlFor="is_cuttable" className="text-sm font-medium text-gray-700">
-                  Kesilebilir (Testere ile kesilip WIP oluşturulabilir mi?)
-                </label>
-              </div>
-
-              {/* Dynamic Attributes Section */}
-              <div className="mt-6 border-t border-gray-200 pt-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">Dinamik Özellikler (Opsiyonel)</label>
-                  <button
-                    type="button"
-                    onClick={() => setCategoryForm({
-                      ...categoryForm,
-                      attributes_schema: [...(categoryForm.attributes_schema || []), { name: '', label: '', type: 'number', required: false }]
-                    })}
-                    className="text-blue-600 hover:text-blue-700 text-xs font-medium flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Ekle
-                  </button>
-                </div>
-                {categoryForm.attributes_schema?.map((attr, idx) => (
-                  <div key={idx} className="flex gap-2 items-center mb-2 bg-gray-50 p-2 rounded border border-gray-100">
-                    <input
-                      type="text"
-                      placeholder="Key (örn: cap)"
-                      value={attr.name}
-                      onChange={(e) => {
-                        const newAttrs = [...categoryForm.attributes_schema!];
-                        newAttrs[idx].name = e.target.value;
-                        setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
-                      }}
-                      className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Etiket (örn: Çap)"
-                      value={attr.label}
-                      onChange={(e) => {
-                        const newAttrs = [...categoryForm.attributes_schema!];
-                        newAttrs[idx].label = e.target.value;
-                        setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
-                      }}
-                      className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
-                    />
-                    <select
-                      value={attr.type}
-                      onChange={(e) => {
-                        const newAttrs = [...categoryForm.attributes_schema!];
-                        newAttrs[idx].type = e.target.value as 'text' | 'number';
-                        setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
-                      }}
-                      className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
-                    >
-                      <option value="number">Sayı</option>
-                      <option value="text">Metin</option>
-                    </select>
-                    <label className="flex items-center gap-1 text-xs text-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={attr.required}
-                        onChange={(e) => {
-                          const newAttrs = [...categoryForm.attributes_schema!];
-                          newAttrs[idx].required = e.target.checked;
-                          setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
-                        }}
-                        className="rounded border-gray-300 text-blue-600"
-                      />
-                      Zorunlu
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newAttrs = [...categoryForm.attributes_schema!];
-                        newAttrs.splice(idx, 1);
-                        setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
-                      }}
-                      className="text-red-500 hover:text-red-700 p-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+              {/* QUICK SUPPLIER MODAL */}
+              {showQuickSupplier && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                  <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Hızlı Tedarikçi Ekle</h2>
+                    {quickError && <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg">{quickError}</div>}
+                    <form onSubmit={handleQuickSupplierCreate}>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Firma Adı *</label>
+                          <input type="text" value={quickForm.name} onChange={e => setQuickForm({ ...quickForm, name: e.target.value })} className={inputCls} required />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Vergi No</label>
+                          <input type="text" value={quickForm.tax_no} onChange={e => setQuickForm({ ...quickForm, tax_no: e.target.value })} className={inputCls} />
+                        </div>
+                      </div>
+                      <div className="mt-6 flex justify-end gap-3">
+                        <button type="button" onClick={() => setShowQuickSupplier(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">İptal</button>
+                        <button type="submit" disabled={quickSubmitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50">Kaydet</button>
+                      </div>
+                    </form>
                   </div>
-                ))}
-                {categoryForm.attributes_schema?.length === 0 && (
-                  <p className="text-xs text-gray-500 italic text-center py-2">Henüz özellik eklenmedi.</p>
-                )}
-              </div>
-
-              {/* Dynamic Tracking Schema Section */}
-              <div className="mt-6 border-t border-gray-200 pt-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">Fiziksel Takip Özellikleri (Stok Kalemi İçin)</label>
-                  <button
-                    type="button"
-                    onClick={() => setCategoryForm({
-                      ...categoryForm,
-                      tracking_schema: [...(categoryForm.tracking_schema || []), { name: '', label: '', type: 'number', required: false }]
-                    })}
-                    className="text-blue-600 hover:text-blue-700 text-xs font-medium flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Ekle
-                  </button>
                 </div>
-                {categoryForm.tracking_schema?.map((attr, idx) => (
-                  <div key={idx} className="flex gap-2 items-center mb-2 bg-gray-50 p-2 rounded border border-gray-100">
-                    <input
-                      type="text"
-                      placeholder="Key (örn: initial_length_mm)"
-                      value={attr.name}
-                      onChange={(e) => {
-                        const newAttrs = [...categoryForm.tracking_schema!];
-                        newAttrs[idx].name = e.target.value;
-                        setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
-                      }}
-                      className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Etiket (örn: Başlangıç Boyu)"
-                      value={attr.label}
-                      onChange={(e) => {
-                        const newAttrs = [...categoryForm.tracking_schema!];
-                        newAttrs[idx].label = e.target.value;
-                        setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
-                      }}
-                      className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
-                    />
-                    <select
-                      value={attr.type}
-                      onChange={(e) => {
-                        const newAttrs = [...categoryForm.tracking_schema!];
-                        newAttrs[idx].type = e.target.value as 'text' | 'number';
-                        setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
-                      }}
-                      className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
-                    >
-                      <option value="number">Sayı</option>
-                      <option value="text">Metin</option>
-                    </select>
-                    <label className="flex items-center gap-1 text-xs text-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={attr.required}
-                        onChange={(e) => {
-                          const newAttrs = [...categoryForm.tracking_schema!];
-                          newAttrs[idx].required = e.target.checked;
-                          setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
-                        }}
-                        className="rounded border-gray-300 text-blue-600"
-                      />
-                      Zorunlu
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newAttrs = [...categoryForm.tracking_schema!];
-                        newAttrs.splice(idx, 1);
-                        setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
-                      }}
-                      className="text-red-500 hover:text-red-700 p-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+              )}
+
+              {/* Category Modal */}
+              {showCategoryModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                  <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                      {editingCategory ? 'Kategori Düzenle' : 'Yeni Kategori'}
+                    </h3>
+                    <div className="space-y-4 mb-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">İsim *</label>
+                        <input
+                          type="text"
+                          value={categoryForm.name}
+                          onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                          className={inputCls}
+                          placeholder="Örn: Hammadde, Bitmiş Ürün..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Temel Birim (UoM) *</label>
+                        <input
+                          type="text"
+                          value={categoryForm.base_uom}
+                          onChange={(e) => setCategoryForm({ ...categoryForm, base_uom: e.target.value })}
+                          className={inputCls}
+                          placeholder="kg, adet, m..."
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 mt-4">
+                        <input
+                          type="checkbox"
+                          id="is_cuttable"
+                          checked={categoryForm.is_cuttable}
+                          onChange={(e) => setCategoryForm({ ...categoryForm, is_cuttable: e.target.checked })}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <label htmlFor="is_cuttable" className="text-sm font-medium text-gray-700">
+                          Kesilebilir (Testere ile kesilip WIP oluşturulabilir mi?)
+                        </label>
+                      </div>
+
+                      {/* Dynamic Attributes Section */}
+                      <div className="mt-6 border-t border-gray-200 pt-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="block text-sm font-medium text-gray-700">Dinamik Özellikler (Opsiyonel)</label>
+                          <button
+                            type="button"
+                            onClick={() => setCategoryForm({
+                              ...categoryForm,
+                              attributes_schema: [...(categoryForm.attributes_schema || []), { name: '', label: '', type: 'number', required: false }]
+                            })}
+                            className="text-blue-600 hover:text-blue-700 text-xs font-medium flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Ekle
+                          </button>
+                        </div>
+                        {categoryForm.attributes_schema?.map((attr, idx) => (
+                          <div key={idx} className="flex gap-2 items-center mb-2 bg-gray-50 p-2 rounded border border-gray-100">
+                            <input
+                              type="text"
+                              placeholder="Key (örn: cap)"
+                              value={attr.name}
+                              onChange={(e) => {
+                                const newAttrs = [...categoryForm.attributes_schema!];
+                                newAttrs[idx].name = e.target.value;
+                                setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                              }}
+                              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Etiket (örn: Çap)"
+                              value={attr.label}
+                              onChange={(e) => {
+                                const newAttrs = [...categoryForm.attributes_schema!];
+                                newAttrs[idx].label = e.target.value;
+                                setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                              }}
+                              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                            <select
+                              value={attr.type}
+                              onChange={(e) => {
+                                const newAttrs = [...categoryForm.attributes_schema!];
+                                newAttrs[idx].type = e.target.value as 'text' | 'number';
+                                setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                              }}
+                              className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                            >
+                              <option value="number">Sayı</option>
+                              <option value="text">Metin</option>
+                            </select>
+                            <label className="flex items-center gap-1 text-xs text-gray-600">
+                              <input
+                                type="checkbox"
+                                checked={attr.required}
+                                onChange={(e) => {
+                                  const newAttrs = [...categoryForm.attributes_schema!];
+                                  newAttrs[idx].required = e.target.checked;
+                                  setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                                }}
+                                className="rounded border-gray-300 text-blue-600"
+                              />
+                              Zorunlu
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newAttrs = [...categoryForm.attributes_schema!];
+                                newAttrs.splice(idx, 1);
+                                setCategoryForm({ ...categoryForm, attributes_schema: newAttrs });
+                              }}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        {categoryForm.attributes_schema?.length === 0 && (
+                          <p className="text-xs text-gray-500 italic text-center py-2">Henüz özellik eklenmedi.</p>
+                        )}
+                      </div>
+
+                      {/* Dynamic Tracking Schema Section */}
+                      <div className="mt-6 border-t border-gray-200 pt-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="block text-sm font-medium text-gray-700">Fiziksel Takip Özellikleri (Stok Kalemi İçin)</label>
+                          <button
+                            type="button"
+                            onClick={() => setCategoryForm({
+                              ...categoryForm,
+                              tracking_schema: [...(categoryForm.tracking_schema || []), { name: '', label: '', type: 'number', required: false }]
+                            })}
+                            className="text-blue-600 hover:text-blue-700 text-xs font-medium flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Ekle
+                          </button>
+                        </div>
+                        {categoryForm.tracking_schema?.map((attr, idx) => (
+                          <div key={idx} className="flex gap-2 items-center mb-2 bg-gray-50 p-2 rounded border border-gray-100">
+                            <input
+                              type="text"
+                              placeholder="Key (örn: initial_length_mm)"
+                              value={attr.name}
+                              onChange={(e) => {
+                                const newAttrs = [...categoryForm.tracking_schema!];
+                                newAttrs[idx].name = e.target.value;
+                                setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
+                              }}
+                              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Etiket (örn: Başlangıç Boyu)"
+                              value={attr.label}
+                              onChange={(e) => {
+                                const newAttrs = [...categoryForm.tracking_schema!];
+                                newAttrs[idx].label = e.target.value;
+                                setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
+                              }}
+                              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                            <select
+                              value={attr.type}
+                              onChange={(e) => {
+                                const newAttrs = [...categoryForm.tracking_schema!];
+                                newAttrs[idx].type = e.target.value as 'text' | 'number';
+                                setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
+                              }}
+                              className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none"
+                            >
+                              <option value="number">Sayı</option>
+                              <option value="text">Metin</option>
+                            </select>
+                            <label className="flex items-center gap-1 text-xs text-gray-600">
+                              <input
+                                type="checkbox"
+                                checked={attr.required}
+                                onChange={(e) => {
+                                  const newAttrs = [...categoryForm.tracking_schema!];
+                                  newAttrs[idx].required = e.target.checked;
+                                  setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
+                                }}
+                                className="rounded border-gray-300 text-blue-600"
+                              />
+                              Zorunlu
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newAttrs = [...categoryForm.tracking_schema!];
+                                newAttrs.splice(idx, 1);
+                                setCategoryForm({ ...categoryForm, tracking_schema: newAttrs });
+                              }}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        {categoryForm.tracking_schema?.length === 0 && (
+                          <p className="text-xs text-gray-500 italic text-center py-2">Henüz özellik eklenmedi.</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-3 justify-end">
+                      <button onClick={() => setShowCategoryModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
+                      <button onClick={handleSaveCategory} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
+                    </div>
                   </div>
-                ))}
-                {categoryForm.tracking_schema?.length === 0 && (
-                  <p className="text-xs text-gray-500 italic text-center py-2">Henüz özellik eklenmedi.</p>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowCategoryModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
-              <button onClick={handleSaveCategory} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
-            </div>
-          </div>
-        </div>
-      )}
+                </div>
+              )}
 
-      {/* Location Modal */}
-      {showLocationModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              {editingLocation ? 'Lokasyon Düzenle' : 'Yeni Lokasyon'}
-            </h3>
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">İsim *</label>
-                <input
-                  type="text"
-                  value={locationForm.name}
-                  onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
-                  className={inputCls}
-                  placeholder="Ana Depo, Testere Alanı..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tip *</label>
-                <select
-                  value={locationForm.location_type}
-                  onChange={(e) => setLocationForm({ ...locationForm, location_type: e.target.value })}
-                  className={inputCls}
-                >
-                  <option value="WAREHOUSE">Depo (Warehouse)</option>
-                  <option value="WORK_CENTER">Üretim Alanı (WorkCenter)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
-                <textarea
-                  value={locationForm.description}
-                  onChange={(e) => setLocationForm({ ...locationForm, description: e.target.value })}
-                  className={inputCls}
-                  rows={2}
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowLocationModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
-              <button onClick={handleSaveLocation} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Material Profile Modal */}
-      {showMaterialProfileModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 my-8">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              {editingMaterialProfile ? 'Tanım Düzenle' : 'Yeni Tanım'}
-            </h3>
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Kategori *</label>
-                <select
-                  value={materialProfileForm.category_id}
-                  onChange={(e) => {
-                    setMaterialProfileForm({ ...materialProfileForm, category_id: e.target.value, attributes: {}, display_name: '' });
-                  }}
-                  className={inputCls}
-                  required
-                >
-                  <option value="">Seçiniz</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={String(c.id)}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {materialProfileForm.category_id && (() => {
-                const selectedCat = categories.find(c => String(c.id) === materialProfileForm.category_id);
-                return selectedCat?.attributes_schema?.map((attr) => (
-                  <div key={attr.name}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{attr.label} {attr.required && '*'}</label>
-                    <input
-                      type={attr.type === 'number' ? 'number' : 'text'}
-                      value={materialProfileForm.attributes[attr.name] || ''}
-                      onChange={(e) => {
-                        const newAttrs = { ...materialProfileForm.attributes, [attr.name]: e.target.value };
-
-                        // Compute display name
-                        const parts = selectedCat.attributes_schema!
-                          .filter(s => newAttrs[s.name])
-                          .map(s => {
-                            let val = newAttrs[s.name];
-                            if (s.name.toLowerCase().includes('cap') || s.name.toLowerCase().includes('çap') || s.label.toLowerCase().includes('çap')) {
-                              return `${val} Ø`;
-                            }
-                            return val;
-                          });
-                        const newDisplayName = parts.join(' - ');
-
-                        setMaterialProfileForm({
-                          ...materialProfileForm,
-                          attributes: newAttrs,
-                          display_name: newDisplayName
-                        });
-                      }}
-                      className={inputCls}
-                      required={attr.required}
-                    />
+              {/* Location Modal */}
+              {showLocationModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                  <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                      {editingLocation ? 'Lokasyon Düzenle' : 'Yeni Lokasyon'}
+                    </h3>
+                    <div className="space-y-4 mb-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">İsim *</label>
+                        <input
+                          type="text"
+                          value={locationForm.name}
+                          onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
+                          className={inputCls}
+                          placeholder="Ana Depo, Testere Alanı..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tip *</label>
+                        <select
+                          value={locationForm.location_type}
+                          onChange={(e) => setLocationForm({ ...locationForm, location_type: e.target.value })}
+                          className={inputCls}
+                        >
+                          <option value="WAREHOUSE">Depo (Warehouse)</option>
+                          <option value="WORK_CENTER">Üretim Alanı (WorkCenter)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
+                        <textarea
+                          value={locationForm.description}
+                          onChange={(e) => setLocationForm({ ...locationForm, description: e.target.value })}
+                          className={inputCls}
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-3 justify-end">
+                      <button onClick={() => setShowLocationModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
+                      <button onClick={handleSaveLocation} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
+                    </div>
                   </div>
-                ));
-              })()}
+                </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tanım İsmi (Otomatik)</label>
-                <input
-                  type="text"
-                  value={materialProfileForm.display_name}
-                  readOnly
-                  className={`${inputCls} bg-gray-50 text-gray-600 cursor-not-allowed`}
-                />
-              </div>
+              {/* Material Profile Modal */}
+              {showMaterialProfileModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+                  <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 my-8">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                      {editingMaterialProfile ? 'Tanım Düzenle' : 'Yeni Tanım'}
+                    </h3>
+                    <div className="space-y-4 mb-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Kategori *</label>
+                        <select
+                          value={materialProfileForm.category_id}
+                          onChange={(e) => {
+                            setMaterialProfileForm({ ...materialProfileForm, category_id: e.target.value, attributes: {}, display_name: '' });
+                          }}
+                          className={inputCls}
+                          required
+                        >
+                          <option value="">Seçiniz</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={String(c.id)}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {materialProfileForm.category_id && (() => {
+                        const selectedCat = categories.find(c => String(c.id) === materialProfileForm.category_id);
+                        return selectedCat?.attributes_schema?.map((attr) => (
+                          <div key={attr.name}>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{attr.label} {attr.required && '*'}</label>
+                            <input
+                              type={attr.type === 'number' ? 'number' : 'text'}
+                              value={materialProfileForm.attributes[attr.name] || ''}
+                              onChange={(e) => {
+                                const newAttrs = { ...materialProfileForm.attributes, [attr.name]: e.target.value };
+
+                                // Compute display name
+                                const parts = selectedCat.attributes_schema!
+                                  .filter(s => newAttrs[s.name])
+                                  .map(s => {
+                                    let val = newAttrs[s.name];
+                                    if (s.name.toLowerCase().includes('cap') || s.name.toLowerCase().includes('çap') || s.label.toLowerCase().includes('çap')) {
+                                      return `${val} Ø`;
+                                    }
+                                    return val;
+                                  });
+                                const newDisplayName = parts.join(' - ');
+
+                                setMaterialProfileForm({
+                                  ...materialProfileForm,
+                                  attributes: newAttrs,
+                                  display_name: newDisplayName
+                                });
+                              }}
+                              className={inputCls}
+                              required={attr.required}
+                            />
+                          </div>
+                        ));
+                      })()}
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tanım İsmi (Otomatik)</label>
+                        <input
+                          type="text"
+                          value={materialProfileForm.display_name}
+                          readOnly
+                          className={`${inputCls} bg-gray-50 text-gray-600 cursor-not-allowed`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                      <button onClick={() => setShowMaterialProfileModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
+                      <button onClick={handleSaveMaterialProfile} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-              <button onClick={() => setShowMaterialProfileModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm">İptal</button>
-              <button onClick={handleSaveMaterialProfile} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">Kaydet</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
+          );
 }
