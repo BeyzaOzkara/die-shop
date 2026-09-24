@@ -104,7 +104,7 @@ export async function getLots(filters?: {
 }
 
 export async function createLot(payload: {
-  lot_number: string;
+  lot_number?: string;    // omit to auto-generate
   certificate_number?: string;
   receive_date: string; // YYYY-MM-DD
   supplier_id?: number | null;

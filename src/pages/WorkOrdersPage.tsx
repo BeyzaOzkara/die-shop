@@ -259,11 +259,10 @@ export function WorkOrdersPage() {
                 <div
                   key={wo.id}
                   onClick={() => setSelectedWorkOrder(wo)}
-                  className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${
-                    selectedWorkOrder?.id === wo.id
-                      ? 'border-blue-500 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`bg-white rounded-lg shadow-sm border-2 p-4 cursor-pointer transition-all ${selectedWorkOrder?.id === wo.id
+                    ? 'border-blue-500 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
                 >
                   <div className="mb-2">
                     <h3 className="font-semibold text-gray-900">{wo.pre_machining_order_number || wo.order_number}</h3>
@@ -354,10 +353,10 @@ export function WorkOrdersPage() {
                   <p className="font-medium text-gray-900">
                     {selectedWorkOrder.pre_machining_order_number ? (
                       selectedWorkOrder.stock_item?.lot?.material_profile ? selectedWorkOrder.stock_item.lot.material_profile.display_name :
-                      (selectedWorkOrder.stock_item?.attributes?.alloy ? `${selectedWorkOrder.stock_item.attributes.alloy} - Ø${selectedWorkOrder.stock_item.attributes.diameter_mm}mm` : '-')
+                        (selectedWorkOrder.stock_item?.attributes?.alloy ? `${selectedWorkOrder.stock_item.attributes.alloy} - Ø${selectedWorkOrder.stock_item.attributes.diameter_mm}mm` : '-')
                     ) : (
                       selectedWorkOrder.die_component?.material_profile ? selectedWorkOrder.die_component.material_profile.display_name :
-                      (selectedWorkOrder.die_component?.stock_item?.attributes?.alloy ? `${selectedWorkOrder.die_component.stock_item.attributes.alloy} - Ø${selectedWorkOrder.die_component.stock_item.attributes.diameter_mm}mm` : '-')
+                        (selectedWorkOrder.die_component?.stock_item?.attributes?.alloy ? `${selectedWorkOrder.die_component.stock_item.attributes.alloy} - Ø${selectedWorkOrder.die_component.stock_item.attributes.diameter_mm}mm` : '-')
                     )}
                   </p>
                 </div>
@@ -373,6 +372,14 @@ export function WorkOrdersPage() {
                   <p className="text-sm text-gray-600 mb-1">Teorik Tüketim</p>
                   <p className="font-medium text-gray-900">
                     {selectedWorkOrder.theoretical_consumption_kg.toFixed(2)} kg
+                  </p>
+                </div>
+                <div className={`rounded-lg p-4 ${selectedWorkOrder.actual_consumption_kg ? 'bg-green-50' : 'bg-gray-50'}`}>
+                  <p className={`text-sm mb-1 ${selectedWorkOrder.actual_consumption_kg ? 'text-green-700' : 'text-gray-600'}`}>Gerçek Tüketim</p>
+                  <p className={`font-medium ${selectedWorkOrder.actual_consumption_kg ? 'text-green-900' : 'text-gray-400'}`}>
+                    {selectedWorkOrder.actual_consumption_kg
+                      ? `${selectedWorkOrder.actual_consumption_kg.toFixed(2)} kg`
+                      : '—'}
                   </p>
                 </div>
                 {(selectedWorkOrder.production_order?.die as any)?.expected_completion_date && (
