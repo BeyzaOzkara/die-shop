@@ -37,7 +37,13 @@ export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'work-centers'>('work-centers');
 
   // Tab: Work Centers
-  const [date, setDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const defaultStart = new Date();
+  defaultStart.setHours(8, 0, 0, 0);
+  const defaultEnd = new Date();
+  defaultEnd.setHours(23, 59, 59, 999);
+  
+  const [startTime, setStartTime] = useState<string>(format(defaultStart, "yyyy-MM-dd'T'HH:mm"));
+  const [endTime, setEndTime] = useState<string>(format(defaultEnd, "yyyy-MM-dd'T'HH:mm"));
   const [stats, setStats] = useState<WorkCenterDailyStats[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCenter, setSelectedCenter] = useState<WorkCenterDailyStats | null>(null);
@@ -46,12 +52,12 @@ export function ReportsPage() {
     if (activeTab === 'work-centers') {
       loadDailyStats();
     }
-  }, [date, activeTab]);
+  }, [startTime, endTime, activeTab]);
 
   const loadDailyStats = async () => {
     try {
       setLoading(true);
-      const res = await api.get<WorkCenterDailyStats[]>(`/reports/work-centers/daily-stats?target_date=${date}`);
+      const res = await api.get<WorkCenterDailyStats[]>(`/reports/work-centers/daily-stats?start_time=${startTime}&end_time=${endTime}`);
       setStats(res || []);
     } catch (e) {
       console.error('Failed to load stats', e);
@@ -110,15 +116,26 @@ export function ReportsPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-lg font-semibold text-gray-800">Günlük Operasyon / Duruş Dağılımı</h2>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <input
-                type="date"
-                value={date}
-                max={format(new Date(), 'yyyy-MM-dd')}
-                onChange={(e) => setDate(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                <span className="text-sm text-gray-500">Başlangıç:</span>
+                <input
+                  type="datetime-local"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">Bitiş:</span>
+                <input
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
             </div>
           </div>
 
@@ -189,7 +206,9 @@ export function ReportsPage() {
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">{selectedCenter.work_center_name} Detayları</h3>
-                <p className="text-sm text-gray-500">{format(parseISO(date), 'd MMMM yyyy', { locale: tr })}</p>
+                <p className="text-sm text-gray-500">
+                  {format(parseISO(startTime), 'd MMM yyyy HH:mm', { locale: tr })} - {format(parseISO(endTime), 'd MMM yyyy HH:mm', { locale: tr })}
+                </p>
               </div>
               <button
                 onClick={() => setSelectedCenter(null)}
@@ -243,7 +262,7 @@ export function ReportsPage() {
                       <div className="flex items-center justify-end shrink-0">
                         <div className="flex flex-col items-end justify-center bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
                           <span className="text-sm font-bold text-blue-700">
-                            Bugün: {interval.duration_minutes.toFixed(1)} dk
+                            Dönem: {interval.duration_minutes.toFixed(1)} dk
                           </span>
                           {interval.total_operation_duration_minutes !== undefined && (
                             <div className="mt-1 flex flex-col items-end">
