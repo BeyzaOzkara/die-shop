@@ -20,6 +20,9 @@ interface OperationInterval {
   start_time: string;
   end_time?: string;
   duration_minutes: number;
+  operator_name?: string;
+  total_operation_duration_minutes?: number;
+  daily_breakdown?: Record<string, number>;
 }
 
 interface WorkCenterDailyStats {
@@ -32,7 +35,7 @@ interface WorkCenterDailyStats {
 
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'work-centers'>('work-centers');
-  
+
   // Tab: Work Centers
   const [date, setDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [stats, setStats] = useState<WorkCenterDailyStats[]>([]);
@@ -91,11 +94,10 @@ export function ReportsPage() {
       <div className="mb-6 flex gap-4 border-b border-gray-200">
         <button
           onClick={() => setActiveTab('work-centers')}
-          className={`pb-2 px-4 font-medium text-sm transition-colors ${
-            activeTab === 'work-centers'
+          className={`pb-2 px-4 font-medium text-sm transition-colors ${activeTab === 'work-centers'
               ? 'border-b-2 border-blue-600 text-blue-600'
               : 'text-gray-500 hover:text-gray-700'
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2">
             <Factory className="w-4 h-4" />
@@ -124,13 +126,13 @@ export function ReportsPage() {
             <div className="text-center text-gray-500 py-10">Yükleniyor...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {stats.map((stat) => {
+              {[...stats].sort((a, b) => b.operating_time_minutes - a.operating_time_minutes).map((stat) => {
                 const data = [
                   { name: 'Çalışma Süresi', value: parseFloat(stat.operating_time_minutes.toFixed(1)) },
                   { name: 'Duruş Süresi', value: parseFloat(stat.downtime_minutes.toFixed(1)) }
                 ];
                 const COLORS = ['#10B981', '#EF4444']; // Green for operating, Red for downtime
-                
+
                 const totalMins = stat.operating_time_minutes + stat.downtime_minutes;
                 const utilRatio = totalMins > 0 ? (stat.operating_time_minutes / totalMins) * 100 : 0;
 
@@ -154,7 +156,12 @@ export function ReportsPage() {
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: number) => `${value} dk`} />
+                          <Tooltip formatter={(value: number) => {
+                            const hours = Math.floor(value / 60);
+                            const mins = Math.round(value % 60);
+                            if (hours > 0) return `${hours} sa ${mins} dk`;
+                            return `${mins} dk`;
+                          }} />
                           <Legend />
                         </PieChart>
                       </ResponsiveContainer>
@@ -191,7 +198,7 @@ export function ReportsPage() {
                 &times;
               </button>
             </div>
-            
+
             <div className="p-4 overflow-y-auto flex-1 bg-gray-50">
               {selectedCenter.intervals.length === 0 ? (
                 <div className="text-center text-gray-500 py-8 bg-white rounded-lg shadow-sm border border-gray-200">
@@ -209,7 +216,7 @@ export function ReportsPage() {
                           {interval.end_time ? format(parseISO(interval.end_time), 'HH:mm') : 'Devam'}
                         </span>
                       </div>
-                      
+
                       <div className="flex-1 flex flex-col justify-center">
                         <div className="flex items-center gap-2 mb-1.5">
                           {getStatusIcon(interval.status)}
@@ -224,13 +231,37 @@ export function ReportsPage() {
                               Sipariş: {interval.work_order_number}
                             </span>
                           )}
+                          {interval.operator_name && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              <span className="font-medium">Operatör: </span>
+                              {interval.operator_name}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      
-                      <div className="flex items-center justify-end w-24 shrink-0">
-                        <span className="text-sm font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                          {interval.duration_minutes.toFixed(1)} dk
-                        </span>
+
+                      <div className="flex items-center justify-end shrink-0">
+                        <div className="flex flex-col items-end justify-center bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                          <span className="text-sm font-bold text-blue-700">
+                            Bugün: {interval.duration_minutes.toFixed(1)} dk
+                          </span>
+                          {interval.total_operation_duration_minutes !== undefined && (
+                            <div className="mt-1 flex flex-col items-end">
+                              <span className="text-xs font-medium text-blue-500" title="Tüm günlerdeki toplam operasyon süresi">
+                                Toplam: {interval.total_operation_duration_minutes.toFixed(1)} dk
+                              </span>
+                              {interval.daily_breakdown && Object.keys(interval.daily_breakdown).length > 1 && (
+                                <div className="mt-1 pt-1 border-t border-blue-200/50 flex flex-col items-end gap-0.5">
+                                  {Object.entries(interval.daily_breakdown).map(([dayStr, dur]) => (
+                                    <span key={dayStr} className="text-[10px] text-blue-400 font-medium">
+                                      {format(parseISO(dayStr), 'dd MMM')}: {dur.toFixed(1)} dk
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
