@@ -254,7 +254,7 @@ export function ReportsPage() {
                                 <div className="mt-1 pt-1 border-t border-blue-200/50 flex flex-col items-end gap-0.5">
                                   {Object.entries(interval.daily_breakdown).map(([dayStr, dur]) => (
                                     <span key={dayStr} className="text-[10px] text-blue-400 font-medium">
-                                      {format(parseISO(dayStr), 'dd MMM')}: {dur.toFixed(1)} dk
+                                      {format(parseISO(dayStr), 'dd MMM', { locale: tr })}: {dur.toFixed(1)} dk
                                     </span>
                                   ))}
                                 </div>
