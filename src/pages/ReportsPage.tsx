@@ -9,8 +9,9 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { Factory, Calendar, Clock, PlayCircle, PauseCircle, CheckCircle } from 'lucide-react';
+import { Factory, Calendar, Clock, PlayCircle, PauseCircle, CheckCircle, Package } from 'lucide-react';
 import { api } from '../lib/api';
+import { StocksReport } from '../components/StocksReport';
 
 interface OperationInterval {
   operation_id: number;
@@ -34,7 +35,7 @@ interface WorkCenterDailyStats {
 }
 
 export function ReportsPage() {
-  const [activeTab, setActiveTab] = useState<'work-centers'>('work-centers');
+  const [activeTab, setActiveTab] = useState<'work-centers' | 'stocks'>('work-centers');
 
   // Tab: Work Centers
   const defaultStart = new Date();
@@ -108,6 +109,18 @@ export function ReportsPage() {
           <div className="flex items-center gap-2">
             <Factory className="w-4 h-4" />
             Çalışma Merkezi Performansı
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab('stocks')}
+          className={`pb-2 px-4 font-medium text-sm transition-colors ${activeTab === 'stocks'
+              ? 'border-b-2 border-blue-600 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+            }`}
+        >
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4" />
+            Stok Raporları
           </div>
         </button>
       </div>
@@ -199,6 +212,8 @@ export function ReportsPage() {
           )}
         </div>
       )}
+
+      {activeTab === 'stocks' && <StocksReport />}
 
       {selectedCenter && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
